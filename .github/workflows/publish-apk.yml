@@ -34,7 +34,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools platforms;android-33 build-tools;33.0.2'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Restore signing key
         env:
@@ -57,7 +57,7 @@ jobs:
         run: |
           apk=app/build/outputs/apk/release/app-release.apk
           test -f "$apk"
-          "$ANDROID_HOME/build-tools/33.0.2/apksigner" verify --verbose "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
           mkdir -p site-build
           short_sha="${GITHUB_SHA:0:12}"
           filename="DirekteSport-TV-${short_sha}.apk"

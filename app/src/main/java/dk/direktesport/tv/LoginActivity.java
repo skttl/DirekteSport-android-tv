@@ -2,9 +2,12 @@ package dk.direktesport.tv;
 
 import android.app.Activity;
 import android.graphics.Color;
+import android.graphics.Insets;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -23,6 +26,13 @@ public final class LoginActivity extends Activity {
         setContentView(root);
         webView = new WebView(this);
         root.addView(webView, new FrameLayout.LayoutParams(-1, -1));
+        if (Build.VERSION.SDK_INT >= 35) {
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
+                Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+                return insets;
+            });
+        }
         TextView hint = new TextView(this);
         hint.setText("Log ind med din JFM-konto · Tryk Tilbage, når du er færdig");
         hint.setTextColor(Color.WHITE);

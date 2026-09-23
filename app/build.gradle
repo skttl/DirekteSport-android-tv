@@ -4,15 +4,19 @@ plugins {
 
 android {
     namespace 'dk.direktesport.tv'
-    compileSdk 33
-    buildToolsVersion '33.0.2'
+    compileSdk 35
+    buildToolsVersion '35.0.0'
 
     defaultConfig {
         applicationId 'dk.direktesport.tv'
         minSdk 26
-        targetSdk 33
+        targetSdk 35
         versionCode Integer.parseInt((project.findProperty('buildVersionCode') ?: '1').toString())
         versionName (project.findProperty('buildVersionName') ?: '0.1.0').toString()
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     compileOptions {

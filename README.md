@@ -19,7 +19,7 @@ Appen prøver Androids egen videoplayer, hvis webafspilleren giver en direkte HT
 
 ## Byg selv
 
-Brug JDK 17, Android SDK Platform 33 og Build Tools 33.0.2. Sæt `ANDROID_HOME` til SDK-mappen, og kør `gradlew.bat assembleDebug` i projektmappen. Den resulterende APK ligger i `app/build/outputs/apk/debug/`.
+Brug JDK 17, Android SDK Platform 35 og Build Tools 35.0.0. Sæt `ANDROID_HOME` til SDK-mappen, og kør `gradlew.bat assembleDebug` i projektmappen. Den resulterende APK ligger i `app/build/outputs/apk/debug/`.
 
 Hvert push til `main` starter `.github/workflows/publish-apk.yml`. Workflowet bygger en signeret APK med stigende Android-versionskode og et nyt filnavn med commit-id. Hver APK arkiveres som et GitHub-download, og GitHub Pages viser en HTML-liste med alle versioner og direkte links. Siden opdaterer også listen via en cache-fri forespørgsel. Repository secrets `ANDROID_KEYSTORE_BASE64` og `ANDROID_KEYSTORE_PASSWORD` er nødvendige for signering; nøglen ligger ikke i Git.
 

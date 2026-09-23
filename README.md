@@ -13,9 +13,9 @@ Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** fo
 1. Åbn **Log ind / konto**, og log ind på JFM's egen side. Appen gemmer websessionen på Shield.
 2. Vælg **Live** eller **Arkiv**. Vælg en sportsgren, eller søg efter et videonavn.
 3. Åbn en video markeret **GRATIS** og derefter en markeret **ABONNEMENT**.
-4. På TV åbner op/ned videolisten, venstre/højre spoler 10 sekunder, OK styrer afspilning, og Tilbage går til kataloget. På telefonen åbner knappen **Videoer** videolisten, og den indbyggede videoplayer har touchkontroller. Live kan kun spoles, hvis streamen tillader det. Appen starter ikke næste video automatisk.
+4. På TV åbner op/ned videolisten, venstre/højre spoler 10 sekunder, OK styrer afspilning, og Tilbage går til kataloget. På telefonen åbner knappen **Videoer** videolisten, og den indbyggede videoplayer har touchkontroller. Live kan kun spoles, hvis streamen tillader det. På telefon og tablet kan du trykke på Cast-knappen i kataloget eller afspilleren, vælge en Chromecast og styre pause/afspilning i afspilleren. Når du afbryder forbindelsen, fortsætter videoen på enheden. Telefon og Chromecast skal være på samme netværk, og Google Play-tjenester skal være tilgængelige. Appen starter ikke næste video automatisk.
 
-Appen henter videoens HLS-adresse fra Flowplayers konfiguration ved hjælp af video-id og spiller m3u8-strømmen direkte med Media3. Kommende livestreams kan først afspilles, når strømmen er startet.
+Appen henter videoens HLS-adresse fra Flowplayers konfiguration ved hjælp af video-id og spiller m3u8-strømmen direkte med Media3. Kommende livestreams kan først afspilles, når strømmen er startet. Chromecast bruger Googles standardmodtager til at hente HLS-adressen direkte. Streams, der kræver telefonens login-cookie eller særlige HTTP-headere, kan derfor fejle på Chromecast; især abonnementsvideoer kræver test med en rigtig enhed og konto.
 
 ## Byg selv
 

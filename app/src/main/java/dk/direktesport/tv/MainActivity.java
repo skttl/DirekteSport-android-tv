@@ -3,6 +3,7 @@ package dk.direktesport.tv;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.content.pm.PackageInfo;
 import android.graphics.Color;
 import android.graphics.Insets;
@@ -28,6 +29,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.core.content.FileProvider;
+import androidx.mediarouter.app.MediaRouteButton;
+
+import com.google.android.gms.cast.framework.CastButtonFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -107,6 +111,13 @@ public final class MainActivity extends Activity {
         TextView title = label("DIREKTE SPORT", compact ? 24 : 29, ACCENT);
         title.setTypeface(null, 1);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        if ((getResources().getConfiguration().uiMode & Configuration.UI_MODE_TYPE_MASK)
+                != Configuration.UI_MODE_TYPE_TELEVISION) {
+            MediaRouteButton castButton = new MediaRouteButton(this);
+            castButton.setContentDescription("Cast til Chromecast");
+            CastButtonFactory.setUpMediaRouteButton(this, castButton);
+            header.addView(castButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        }
         Button updates = button("Tjek opdatering");
         updates.setOnClickListener(v -> checkForUpdates(true));
         Button login = button("Log ind / konto");

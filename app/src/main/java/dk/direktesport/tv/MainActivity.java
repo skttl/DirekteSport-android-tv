@@ -3,7 +3,6 @@ package dk.direktesport.tv;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.drawable.ColorDrawable;
@@ -69,15 +68,19 @@ public final class MainActivity extends Activity {
     }
 
     private void buildUi() {
+        boolean compact = getResources().getConfiguration().smallestScreenWidthDp < 600;
+        int sidePadding = dp(compact ? 12 : 30);
+        int topPadding = dp(compact ? 8 : 22);
+        int bottomPadding = dp(compact ? 8 : 18);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACKGROUND);
-        root.setPadding(dp(30), dp(22), dp(30), dp(18));
+        root.setPadding(sidePadding, topPadding, sidePadding, bottomPadding);
         if (Build.VERSION.SDK_INT >= 35) {
             root.setOnApplyWindowInsetsListener((view, insets) -> {
                 Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
-                view.setPadding(dp(30) + bars.left, dp(22) + bars.top,
-                        dp(30) + bars.right, dp(18) + bars.bottom);
+                view.setPadding(sidePadding + bars.left, topPadding + bars.top,
+                        sidePadding + bars.right, bottomPadding + bars.bottom);
                 return insets;
             });
         }
@@ -85,30 +88,48 @@ public final class MainActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(header, new LinearLayout.LayoutParams(-1, dp(58)));
-        TextView title = label("DIREKTE SPORT", 29, ACCENT);
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(compact ? 45 : 58)));
+        TextView title = label("DIREKTE SPORT", compact ? 24 : 29, ACCENT);
         title.setTypeface(null, 1);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         Button updates = button("Tjek opdatering");
         updates.setOnClickListener(v -> checkForUpdates(true));
-        header.addView(updates);
         Button login = button("Log ind / konto");
         login.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
-        header.addView(login);
+        if (compact) {
+            LinearLayout actions = new LinearLayout(this);
+            root.addView(actions, new LinearLayout.LayoutParams(-1, dp(50)));
+            actions.addView(login, new LinearLayout.LayoutParams(0, -1, 1));
+            actions.addView(updates, new LinearLayout.LayoutParams(0, -1, 1));
+        } else {
+            header.addView(updates);
+            header.addView(login);
+        }
 
         LinearLayout navigation = new LinearLayout(this);
         navigation.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(navigation, new LinearLayout.LayoutParams(-1, dp(64)));
+        root.addView(navigation, new LinearLayout.LayoutParams(-1, dp(compact ? 50 : 64)));
         Button live = button("Live");
         live.setOnClickListener(v -> { mode = "livestream"; search = ""; reload("Live og kommende udsendelser"); });
-        navigation.addView(live);
         Button archive = button("Arkiv");
         archive.setOnClickListener(v -> { mode = "video-on-demand"; search = ""; reload("Arkivvideoer"); });
-        navigation.addView(archive);
+        if (compact) {
+            navigation.addView(live, new LinearLayout.LayoutParams(0, -1, 1));
+            navigation.addView(archive, new LinearLayout.LayoutParams(0, -1, 1));
+        } else {
+            navigation.addView(live);
+            navigation.addView(archive);
+        }
         categoryButton = button("Alle sportsgrene ▾");
         categoryButton.setOnClickListener(v -> chooseCategory());
-        navigation.addView(categoryButton);
+        if (compact) {
+            root.addView(categoryButton, new LinearLayout.LayoutParams(-1, dp(48)));
+        } else {
+            navigation.addView(categoryButton);
+        }
 
+        LinearLayout searchRow = compact ? new LinearLayout(this) : navigation;
+        if (compact) root.addView(searchRow, new LinearLayout.LayoutParams(-1, dp(50)));
         searchInput = new EditText(this);
         searchInput.setSingleLine(true);
         searchInput.setHint("Søg i videoer");
@@ -118,19 +139,18 @@ public final class MainActivity extends Activity {
         searchInput.setPadding(dp(14), 0, dp(14), 0);
         searchInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
         LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-        searchParams.leftMargin = dp(12);
-        navigation.addView(searchInput, searchParams);
+        if (!compact) searchParams.leftMargin = dp(12);
+        searchRow.addView(searchInput, searchParams);
         Button searchButton = button("Søg");
         searchButton.setOnClickListener(v -> search());
-        navigation.addView(searchButton);
+        searchRow.addView(searchButton);
         searchInput.setOnEditorActionListener((v, action, event) -> { search(); return true; });
-
         status = label("Henter videoer …", 16, Color.LTGRAY);
         status.setPadding(0, dp(8), 0, dp(12));
         root.addView(status);
 
         grid = new GridView(this);
-        grid.setNumColumns(3);
+        grid.setNumColumns(compact ? 1 : 3);
         grid.setColumnWidth(dp(280));
         grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
         grid.setHorizontalSpacing(dp(14));
@@ -158,7 +178,7 @@ public final class MainActivity extends Activity {
     }
 
     private void checkForUpdates(boolean manual) {
-        executor.execute(() -> {
+        updateExecutor.execute(() -> {
             try {
                 UpdateChecker.Update update = UpdateChecker.latest();
                 main.post(() -> {
@@ -197,6 +217,7 @@ public final class MainActivity extends Activity {
             }
         });
     }
+
     private void search() {
         search = searchInput.getText().toString().trim();
         if (search.isEmpty()) return;

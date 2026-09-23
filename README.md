@@ -1,10 +1,10 @@
 # DirekteSport TV
 
-Privat Android TV-app til Nvidia Shield. Første milepæl viser DirekteSports katalog i en selvstændig TV-grænseflade og åbner videoer i fuld skærm.
+Android-app til Nvidia Shield og telefon. Den viser DirekteSports katalog og åbner videoer i fuld skærm. TV-grænsefladen styres med fjernbetjeningen; telefonen har et layout til touch.
 
-## Hent APK på Shield
+## Hent APK på Shield eller telefon
 
-Åbn [downloadsiden](https://skttl.github.io/DirekteSport-android-tv/) i Shield-browseren, og tryk **Download APK**. Åbn den hentede fil med en filhåndtering, og tillad installation fra den app, der åbner APK'en.
+Åbn [downloadsiden](https://skttl.github.io/DirekteSport-android-tv/) i browseren, og tryk **Download nyeste APK**. Åbn den hentede fil, og tillad installation fra browseren eller filhåndteringen. Appen vises som **DirekteSport TV** i telefonens appskuffe og på Android TV-startskærmen.
 
 Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** for at kontrollere manuelt. Når en opdatering findes, åbner appen APK-linket i browseren, hvor du kan hente og installere den. De publicerede APK'er signeres med samme nøgle, så en ny APK kan opdatere en tidligere installation. Den lokale debug-APK i `app/build/outputs/apk/debug/` har en anden signatur og kan ikke installeres som opdatering til den publicerede APK.
 
@@ -13,7 +13,7 @@ Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** fo
 1. Åbn **Log ind / konto**, og log ind på JFM's egen side. Appen gemmer websessionen på Shield.
 2. Vælg **Live** eller **Arkiv**. Vælg en sportsgren, eller søg efter et videonavn.
 3. Åbn en video markeret **GRATIS** og derefter en markeret **ABONNEMENT**.
-4. Under afspilning åbner op/ned videolisten, venstre/højre spoler 10 sekunder, OK styrer afspilning, og Tilbage går til kataloget. Live kan kun spoles, hvis streamen tillader det. Appen starter ikke næste video automatisk.
+4. På TV åbner op/ned videolisten, venstre/højre spoler 10 sekunder, OK styrer afspilning, og Tilbage går til kataloget. På telefonen åbner knappen **Videoer** videolisten, og den indbyggede videoplayer har touchkontroller. Live kan kun spoles, hvis streamen tillader det. Appen starter ikke næste video automatisk.
 
 Appen prøver Androids egen videoplayer, hvis webafspilleren giver en direkte HTTPS-kilde til HLS eller MP4. Ellers fortsætter videoen i DirekteSports webafspiller.
 

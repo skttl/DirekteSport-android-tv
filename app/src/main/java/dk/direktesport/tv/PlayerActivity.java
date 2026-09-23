@@ -19,6 +19,7 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.MediaController;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.VideoView;
@@ -38,9 +39,12 @@ public final class PlayerActivity extends Activity {
     private ScrollView chooser;
     private int selected;
     private boolean nativeAttempted;
+    private boolean compact;
+    private Button phoneVideosButton;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        compact = getResources().getConfiguration().smallestScreenWidthDp < 600;
         getWindow().getDecorView().setSystemUiVisibility(5894 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -67,6 +71,7 @@ public final class PlayerActivity extends Activity {
                 customCallback = callback;
                 root.addView(view, new FrameLayout.LayoutParams(-1, -1));
                 view.bringToFront();
+                if (phoneVideosButton != null) phoneVideosButton.bringToFront();
             }
             @Override public void onHideCustomView() {
                 if (customView == null) return;
@@ -79,6 +84,19 @@ public final class PlayerActivity extends Activity {
         nativePlayer = new VideoView(this);
         nativePlayer.setVisibility(View.GONE);
         root.addView(nativePlayer, new FrameLayout.LayoutParams(-1, -1));
+        if (compact) {
+            MediaController controls = new MediaController(this);
+            controls.setAnchorView(nativePlayer);
+            nativePlayer.setMediaController(controls);
+            phoneVideosButton = new Button(this);
+            phoneVideosButton.setText("Videoer");
+            phoneVideosButton.setAllCaps(false);
+            phoneVideosButton.setOnClickListener(v -> showChooser());
+            FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(
+                    -2, dp(48), Gravity.TOP | Gravity.END);
+            buttonParams.setMargins(dp(8), dp(8), dp(8), dp(8));
+            root.addView(phoneVideosButton, buttonParams);
+        }
         selected = getIntent().getIntExtra("index", 0);
         String fallbackUrl = getIntent().getStringExtra("url");
         if (!queue.isEmpty() && selected >= 0 && selected < queue.size()) {
@@ -178,7 +196,7 @@ public final class PlayerActivity extends Activity {
     }
 
     private void showChooser() {
-        if (queue.isEmpty()) return;
+        if (queue.isEmpty() || chooser != null) return;
         chooser = new ScrollView(this);
         chooser.setBackgroundColor(Color.argb(245, 16, 21, 30));
         LinearLayout list = new LinearLayout(this);
@@ -190,6 +208,12 @@ public final class PlayerActivity extends Activity {
         title.setTextColor(Color.WHITE);
         title.setTextSize(24);
         list.addView(title);
+        if (compact) {
+            Button close = new Button(this);
+            close.setText("Luk liste");
+            close.setOnClickListener(v -> hideChooser());
+            list.addView(close);
+        }
         for (int i = 0; i < queue.size(); i++) {
             final int index = i;
             Video video = queue.get(i);
@@ -206,7 +230,7 @@ public final class PlayerActivity extends Activity {
             list.addView(item, new LinearLayout.LayoutParams(-1, dp(64)));
             if (i == selected) main.post(item::requestFocus);
         }
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(620), -1, Gravity.START);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(compact ? -1 : dp(620), -1, Gravity.START);
         root.addView(chooser, params);
         chooser.bringToFront();
     }

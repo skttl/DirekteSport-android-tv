@@ -21,10 +21,6 @@ final class Video {
         startsAt = json.optLong("broadcastStart");
     }
 
-    String pageUrl() {
-        return "https://direktesport.dk/video/live-sport/" + type + "/" + id;
-    }
-
     boolean isLive() {
         return "livestream".equals(type);
     }

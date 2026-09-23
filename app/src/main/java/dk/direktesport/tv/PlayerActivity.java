@@ -9,38 +9,39 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.ViewGroup;
-import android.webkit.CookieManager;
-import android.webkit.JavascriptInterface;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.MediaController;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.VideoView;
+import android.webkit.CookieManager;
+
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.hls.HlsMediaSource;
+import androidx.media3.ui.PlayerView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class PlayerActivity extends Activity {
     static ArrayList<Video> queue = new ArrayList<>();
     private final Handler main = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private FrameLayout root;
-    private WebView webView;
-    private VideoView nativePlayer;
-    private View customView;
-    private WebChromeClient.CustomViewCallback customCallback;
+    private PlayerView playerView;
+    private ExoPlayer player;
+    private TextView message;
     private ScrollView chooser;
     private int selected;
-    private boolean nativeAttempted;
+    private int requestGeneration;
     private boolean compact;
-    private Button phoneVideosButton;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -49,115 +50,86 @@ public final class PlayerActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         setContentView(root);
-        webView = new WebView(this);
-        root.addView(webView, new FrameLayout.LayoutParams(-1, -1));
-        CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        webView.addJavascriptInterface(new SourceBridge(), "AndroidVideoSource");
-        webView.setWebViewClient(new WebViewClient() {
-            @Override public void onPageFinished(WebView view, String url) {
-                if (url.startsWith("https://direktesport.dk/video/")) injectTvLayout();
+
+        player = new ExoPlayer.Builder(this).build();
+        playerView = new PlayerView(this);
+        playerView.setPlayer(player);
+        playerView.setUseController(compact);
+        root.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
+
+        message = new TextView(this);
+        message.setTextColor(Color.WHITE);
+        message.setTextSize(20);
+        message.setGravity(Gravity.CENTER);
+        message.setPadding(dp(24), dp(24), dp(24), dp(24));
+        root.addView(message, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
+        player.addListener(new Player.Listener() {
+            @Override public void onPlaybackStateChanged(int state) {
+                if (state == Player.STATE_READY) message.setVisibility(View.GONE);
+            }
+
+            @Override public void onPlayerError(PlaybackException error) {
+                message.setText("Kunne ikke afspille videoen: " + error.getMessage());
+                message.setVisibility(View.VISIBLE);
             }
         });
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override public void onShowCustomView(View view, CustomViewCallback callback) {
-                if (customView != null) { callback.onCustomViewHidden(); return; }
-                customView = view;
-                customCallback = callback;
-                root.addView(view, new FrameLayout.LayoutParams(-1, -1));
-                view.bringToFront();
-                if (phoneVideosButton != null) phoneVideosButton.bringToFront();
-            }
-            @Override public void onHideCustomView() {
-                if (customView == null) return;
-                root.removeView(customView);
-                customView = null;
-                customCallback.onCustomViewHidden();
-                customCallback = null;
-            }
-        });
-        nativePlayer = new VideoView(this);
-        nativePlayer.setVisibility(View.GONE);
-        root.addView(nativePlayer, new FrameLayout.LayoutParams(-1, -1));
+
         if (compact) {
-            MediaController controls = new MediaController(this);
-            controls.setAnchorView(nativePlayer);
-            nativePlayer.setMediaController(controls);
-            phoneVideosButton = new Button(this);
-            phoneVideosButton.setText("Videoer");
-            phoneVideosButton.setAllCaps(false);
-            phoneVideosButton.setOnClickListener(v -> showChooser());
-            FrameLayout.LayoutParams buttonParams = new FrameLayout.LayoutParams(
+            Button videosButton = new Button(this);
+            videosButton.setText("Videoer");
+            videosButton.setAllCaps(false);
+            videosButton.setOnClickListener(v -> showChooser());
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                     -2, dp(48), Gravity.TOP | Gravity.END);
-            buttonParams.setMargins(dp(8), dp(8), dp(8), dp(8));
-            root.addView(phoneVideosButton, buttonParams);
+            params.setMargins(dp(8), dp(8), dp(8), dp(8));
+            root.addView(videosButton, params);
         }
+
         selected = getIntent().getIntExtra("index", 0);
-        String fallbackUrl = getIntent().getStringExtra("url");
         if (!queue.isEmpty() && selected >= 0 && selected < queue.size()) {
-            play(queue.get(selected).pageUrl());
-        } else if (fallbackUrl != null) {
-            play(fallbackUrl);
-        } else finish();
-    }
-
-    private void play(String url) {
-        nativeAttempted = false;
-        nativePlayer.stopPlayback();
-        nativePlayer.setVisibility(View.GONE);
-        webView.setVisibility(View.VISIBLE);
-        webView.loadUrl(url);
-    }
-
-    private void injectTvLayout() {
-        String script = "(function(){"
-                + "if(!document.getElementById('ds-tv-style')){var s=document.createElement('style');s.id='ds-tv-style';"
-                + "s.textContent='html,body,main,.jfm-video-video-page{margin:0!important;padding:0!important;max-width:none!important;width:100vw!important;height:100vh!important;background:#000!important;overflow:hidden!important}'"
-                + "+'header,footer,.video__share,.video__description,.video__date,.video__title{display:none!important}'"
-                + "+'.video,.video__inner,.video__inner-player,.flowplayer{width:100vw!important;height:100vh!important;max-width:none!important;margin:0!important;padding:0!important;background:#000!important}';document.head.appendChild(s)}"
-                + "setInterval(function(){var v=document.querySelector('video');if(v&&v.currentSrc)AndroidVideoSource.offer(v.currentSrc)},2000)"
-                + "})()";
-        webView.evaluateJavascript(script, null);
-    }
-
-    private final class SourceBridge {
-        @JavascriptInterface public void offer(String source) {
-            main.post(() -> tryNative(source));
+            play(queue.get(selected).id);
+        } else {
+            String id = getIntent().getStringExtra("id");
+            if (id == null) finish(); else play(id);
         }
     }
 
-    private void tryNative(String source) {
-        if (nativeAttempted || source == null || !source.startsWith("https://")) return;
-        Uri uri = Uri.parse(source);
-        String path = uri.getPath();
-        if (path == null || !(path.endsWith(".m3u8") || path.endsWith(".mp4"))) return;
-        nativeAttempted = true;
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Referer", "https://direktesport.dk/");
-        String cookie = CookieManager.getInstance().getCookie(source);
-        if (cookie != null) headers.put("Cookie", cookie);
-        nativePlayer.setOnPreparedListener(player -> {
-            webView.evaluateJavascript("(function(){var v=document.querySelector('video');if(v)v.pause()})()", null);
-            webView.setVisibility(View.GONE);
-            nativePlayer.setVisibility(View.VISIBLE);
-            nativePlayer.start();
+    private void play(String videoId) {
+        int request = ++requestGeneration;
+        player.stop();
+        player.clearMediaItems();
+        message.setText("Henter video …");
+        message.setVisibility(View.VISIBLE);
+        executor.execute(() -> {
+            try {
+                String source = VideoSourceClient.hlsUrl(videoId);
+                main.post(() -> {
+                    if (request != requestGeneration || isFinishing() || isDestroyed()) return;
+                    Map<String, String> headers = new HashMap<>();
+                    headers.put("Referer", CatalogClient.BASE + "/");
+                    String cookie = CookieManager.getInstance().getCookie(source);
+                    if (cookie != null && !cookie.isEmpty()) headers.put("Cookie", cookie);
+                    DefaultHttpDataSource.Factory dataSource = new DefaultHttpDataSource.Factory()
+                            .setDefaultRequestProperties(headers);
+                    HlsMediaSource mediaSource = new HlsMediaSource.Factory(dataSource)
+                            .createMediaSource(MediaItem.fromUri(Uri.parse(source)));
+                    player.setMediaSource(mediaSource);
+                    player.prepare();
+                    player.play();
+                });
+            } catch (Exception error) {
+                main.post(() -> {
+                    if (request != requestGeneration || isFinishing() || isDestroyed()) return;
+                    message.setText("Kunne ikke hente videoen: " + error.getMessage());
+                    message.setVisibility(View.VISIBLE);
+                });
+            }
         });
-        nativePlayer.setOnErrorListener((player, what, extra) -> {
-            nativePlayer.setVisibility(View.GONE);
-            webView.setVisibility(View.VISIBLE);
-            webView.evaluateJavascript("(function(){var v=document.querySelector('video');if(v)v.play()})()", null);
-            return true;
-        });
-        nativePlayer.setVideoURI(uri, headers);
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction() != KeyEvent.ACTION_DOWN || chooser != null) return super.dispatchKeyEvent(event);
+        if (event.getAction() != KeyEvent.ACTION_DOWN || chooser != null || compact)
+            return super.dispatchKeyEvent(event);
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_DPAD_UP:
             case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -171,27 +143,16 @@ public final class PlayerActivity extends Activity {
                 return true;
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-                togglePlay();
+                if (player.isPlaying()) player.pause(); else player.play();
                 return true;
             default:
                 return super.dispatchKeyEvent(event);
         }
     }
 
-    private void seek(int milliseconds) {
-        if (nativePlayer.getVisibility() == View.VISIBLE) {
-            nativePlayer.seekTo(Math.max(0, nativePlayer.getCurrentPosition() + milliseconds));
-        } else {
-            int seconds = milliseconds / 1000;
-            webView.evaluateJavascript("(function(){var v=document.querySelector('video');if(v&&v.seekable.length)v.currentTime=Math.max(0,v.currentTime+" + seconds + ")})()", null);
-        }
-    }
-
-    private void togglePlay() {
-        if (nativePlayer.getVisibility() == View.VISIBLE) {
-            if (nativePlayer.isPlaying()) nativePlayer.pause(); else nativePlayer.start();
-        } else {
-            webView.evaluateJavascript("(function(){var v=document.querySelector('video');if(v){if(v.paused)v.play();else v.pause()}})()", null);
+    private void seek(long milliseconds) {
+        if (player.isCurrentMediaItemSeekable()) {
+            player.seekTo(Math.max(0, player.getCurrentPosition() + milliseconds));
         }
     }
 
@@ -219,18 +180,20 @@ public final class PlayerActivity extends Activity {
             Video video = queue.get(i);
             Button item = new Button(this);
             item.setAllCaps(false);
-            item.setText((i == selected ? "▶  " : "") + video.title + (video.paid ? "  · Abonnement" : "  · Gratis"));
+            item.setText((i == selected ? "▶  " : "") + video.title
+                    + (video.paid ? "  · Abonnement" : "  · Gratis"));
             item.setTextColor(Color.WHITE);
             item.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             item.setOnClickListener(v -> {
                 selected = index;
                 hideChooser();
-                play(video.pageUrl());
+                play(video.id);
             });
             list.addView(item, new LinearLayout.LayoutParams(-1, dp(64)));
             if (i == selected) main.post(item::requestFocus);
         }
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(compact ? -1 : dp(620), -1, Gravity.START);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                compact ? -1 : dp(620), -1, Gravity.START);
         root.addView(chooser, params);
         chooser.bringToFront();
     }
@@ -246,12 +209,16 @@ public final class PlayerActivity extends Activity {
         super.onBackPressed();
     }
 
+    @Override protected void onStop() {
+        player.pause();
+        super.onStop();
+    }
+
     @Override protected void onDestroy() {
-        nativePlayer.stopPlayback();
-        if (webView != null) {
-            ((ViewGroup) webView.getParent()).removeView(webView);
-            webView.destroy();
-        }
+        requestGeneration++;
+        executor.shutdownNow();
+        playerView.setPlayer(null);
+        player.release();
         super.onDestroy();
     }
 

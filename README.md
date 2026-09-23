@@ -15,7 +15,7 @@ Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** fo
 3. Åbn en video markeret **GRATIS** og derefter en markeret **ABONNEMENT**.
 4. På TV åbner op/ned videolisten, venstre/højre spoler 10 sekunder, OK styrer afspilning, og Tilbage går til kataloget. På telefonen åbner knappen **Videoer** videolisten, og den indbyggede videoplayer har touchkontroller. Live kan kun spoles, hvis streamen tillader det. Appen starter ikke næste video automatisk.
 
-Appen prøver Androids egen videoplayer, hvis webafspilleren giver en direkte HTTPS-kilde til HLS eller MP4. Ellers fortsætter videoen i DirekteSports webafspiller.
+Appen henter videoens HLS-adresse fra Flowplayers konfiguration ved hjælp af video-id og spiller m3u8-strømmen direkte med Media3. Kommende livestreams kan først afspilles, når strømmen er startet.
 
 ## Byg selv
 
@@ -27,4 +27,4 @@ Kataloget hentes fra de JSON-endepunkter, som [DirekteSports hjemmeside](https:/
 
 ## Status
 
-Katalog-endepunkterne er kontrolleret uden login, og APK'en bygger lokalt. Login, videoafspilning og betalt adgang skal afprøves på Shield med den eksisterende JFM-konto. Der var ingen tilsluttet Android-enhed under udviklingen.
+Katalog-endepunkterne og HLS-konfigurationen er kontrolleret uden login. Den direkte afspilning og betalt adgang skal afprøves på Shield med den eksisterende JFM-konto.

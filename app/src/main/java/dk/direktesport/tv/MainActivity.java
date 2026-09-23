@@ -164,7 +164,7 @@ public final class MainActivity extends Activity {
             PlayerActivity.queue = new ArrayList<>(videos);
             Intent intent = new Intent(this, PlayerActivity.class);
             intent.putExtra("index", position);
-            intent.putExtra("url", videos.get(position).pageUrl());
+            intent.putExtra("id", videos.get(position).id);
             startActivity(intent);
         });
         grid.setOnScrollListener(new AbsListView.OnScrollListener() {

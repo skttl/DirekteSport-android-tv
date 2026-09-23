@@ -6,7 +6,7 @@ Android-app til Nvidia Shield og telefon. Den viser DirekteSports katalog og åb
 
 Åbn [downloadsiden](https://skttl.github.io/DirekteSport-android-tv/) i browseren, og tryk **Download nyeste APK**. Åbn den hentede fil, og tillad installation fra browseren eller filhåndteringen. Appen vises som **DirekteSport TV** i telefonens appskuffe og på Android TV-startskærmen.
 
-Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** for at kontrollere manuelt. Når en opdatering findes, åbner appen APK-linket i browseren, hvor du kan hente og installere den. De publicerede APK'er signeres med samme nøgle, så en ny APK kan opdatere en tidligere installation. Den lokale debug-APK i `app/build/outputs/apk/debug/` har en anden signatur og kan ikke installeres som opdatering til den publicerede APK.
+Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** for at kontrollere manuelt. Når en opdatering findes, viser appen versionsnoterne og kan selv hente APK-filen. Android åbner derefter installationsskærmen. Første gang skal du give DirekteSport TV tilladelse til at installere apps fra denne kilde. De publicerede APK'er signeres med samme nøgle, så en ny APK kan opdatere en tidligere installation. Den lokale debug-APK i `app/build/outputs/apk/debug/` har en anden signatur og kan ikke installeres som opdatering til den publicerede APK.
 
 ## Prøv første milepæl
 

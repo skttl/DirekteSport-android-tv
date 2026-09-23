@@ -56,7 +56,7 @@ final class UpdateChecker {
                     continue;
                 }
                 if (latest == null || code > latest.versionCode) {
-                    latest = new Update(code, url);
+                    latest = new Update(code, url, entry.optString("notes").trim());
                 }
             }
             if (latest == null) throw new IOException("Ingen gyldige APK-versioner fundet");
@@ -69,10 +69,12 @@ final class UpdateChecker {
     static final class Update {
         final int versionCode;
         final String url;
+        final String notes;
 
-        Update(int versionCode, String url) {
+        Update(int versionCode, String url, String notes) {
             this.versionCode = versionCode;
             this.url = url;
+            this.notes = notes;
         }
     }
 }

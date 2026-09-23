@@ -3,6 +3,7 @@ package dk.direktesport.tv;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.drawable.ColorDrawable;
@@ -12,6 +13,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,8 +24,13 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.core.content.FileProvider;
+
+import java.io.File;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -35,6 +42,7 @@ public final class MainActivity extends Activity {
     private static final int BACKGROUND = Color.rgb(16, 21, 30);
     private static final int CARD = Color.rgb(30, 39, 53);
     private static final int ACCENT = Color.rgb(244, 197, 69);
+    private static final int UNKNOWN_SOURCES_REQUEST = 1;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -52,16 +60,23 @@ public final class MainActivity extends Activity {
     private int generation;
     private boolean loading;
     private boolean hasMore = true;
+    private boolean downloadingUpdate;
+    private AlertDialog downloadDialog;
+    private File pendingApk;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         buildUi();
+        if (state != null && state.getString("pendingApk") != null) {
+            pendingApk = new File(state.getString("pendingApk"));
+        }
         loadCategories();
         reload("Live og kommende udsendelser");
         checkForUpdates(false);
     }
 
     @Override protected void onDestroy() {
+        if (downloadDialog != null) downloadDialog.dismiss();
         executor.shutdownNow();
         updateExecutor.shutdownNow();
         super.onDestroy();
@@ -190,20 +205,13 @@ public final class MainActivity extends Activity {
                                 .setPositiveButton("OK", null).show();
                         return;
                     }
+                    String notes = update.notes.isEmpty()
+                            ? "Ingen versionsnoter til denne version."
+                            : update.notes;
                     new AlertDialog.Builder(this)
                             .setTitle("Ny version tilgængelig")
-                            .setMessage("Build " + update.versionCode + " er klar. Den åbnes i browseren, hvor du kan hente og installere APK-filen.")
-                            .setPositiveButton("Åbn download", (dialog, which) -> {
-                                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(update.url));
-                                try {
-                                    startActivity(intent);
-                                } catch (android.content.ActivityNotFoundException error) {
-                                    new AlertDialog.Builder(this)
-                                            .setTitle("Ingen browser fundet")
-                                            .setMessage("Åbn downloadsiden på en browser: https://skttl.github.io/DirekteSport-android-tv/")
-                                            .setPositiveButton("OK", null).show();
-                                }
-                            })
+                            .setMessage("Build " + update.versionCode + "\n\nVersionsnoter:\n" + notes)
+                            .setPositiveButton("Hent og installer", (dialog, which) -> downloadUpdate(update))
                             .setNegativeButton("Senere", null).show();
                 });
             } catch (Exception error) {
@@ -216,6 +224,97 @@ public final class MainActivity extends Activity {
                 });
             }
         });
+    }
+
+    private void downloadUpdate(UpdateChecker.Update update) {
+        if (downloadingUpdate) return;
+        downloadingUpdate = true;
+        AlertDialog progress = new AlertDialog.Builder(this)
+                .setTitle("Henter opdatering")
+                .setMessage("APK-filen hentes. Det kan tage et øjeblik.")
+                .setView(new ProgressBar(this))
+                .setCancelable(false).create();
+        progress.show();
+        downloadDialog = progress;
+        updateExecutor.execute(() -> {
+            try {
+                File apk = UpdateDownloader.download(update.url, new File(getCacheDir(), "updates"));
+                PackageInfo info = getPackageManager().getPackageArchiveInfo(apk.getAbsolutePath(), 0);
+                if (info == null || !getPackageName().equals(info.packageName)
+                        || info.versionCode != update.versionCode) {
+                    apk.delete();
+                    throw new IOException("Den hentede APK matcher ikke den forventede version");
+                }
+                main.post(() -> {
+                    progress.dismiss();
+                    downloadDialog = null;
+                    downloadingUpdate = false;
+                    if (!isFinishing() && !isDestroyed()) installUpdate(apk);
+                });
+            } catch (Exception error) {
+                main.post(() -> {
+                    progress.dismiss();
+                    downloadDialog = null;
+                    downloadingUpdate = false;
+                    if (!isFinishing() && !isDestroyed()) {
+                        showUpdateError("Kunne ikke hente opdateringen", error.getMessage());
+                    }
+                });
+            }
+        });
+    }
+
+    private void installUpdate(File apk) {
+        if (!apk.isFile()) {
+            showUpdateError("Kunne ikke installere", "APK-filen findes ikke længere. Prøv igen.");
+            return;
+        }
+        if (!getPackageManager().canRequestPackageInstalls()) {
+            pendingApk = apk;
+            new AlertDialog.Builder(this)
+                    .setTitle("Tillad installation")
+                    .setMessage("Android skal have tilladelse til at installere apps fra DirekteSport TV. Giv tilladelsen i indstillinger, og gå tilbage hertil.")
+                    .setPositiveButton("Åbn indstillinger", (dialog, which) -> {
+                        Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:" + getPackageName()));
+                        try {
+                            startActivityForResult(settings, UNKNOWN_SOURCES_REQUEST);
+                        } catch (android.content.ActivityNotFoundException error) {
+                            showUpdateError("Kunne ikke åbne indstillinger", error.getMessage());
+                        }
+                    })
+                    .setNegativeButton("Senere", null).show();
+            return;
+        }
+        pendingApk = null;
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".updates", apk);
+        Intent install = new Intent(Intent.ACTION_VIEW);
+        install.setDataAndType(uri, "application/vnd.android.package-archive");
+        install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivity(install);
+        } catch (android.content.ActivityNotFoundException error) {
+            showUpdateError("Kunne ikke åbne installationen", error.getMessage());
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == UNKNOWN_SOURCES_REQUEST && pendingApk != null
+                && getPackageManager().canRequestPackageInstalls()) {
+            installUpdate(pendingApk);
+        }
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (pendingApk != null) state.putString("pendingApk", pendingApk.getAbsolutePath());
+        super.onSaveInstanceState(state);
+    }
+
+    private void showUpdateError(String title, String message) {
+        new AlertDialog.Builder(this).setTitle(title)
+                .setMessage(message == null ? "Prøv igen senere." : message)
+                .setPositiveButton("OK", null).show();
     }
 
     private void search() {

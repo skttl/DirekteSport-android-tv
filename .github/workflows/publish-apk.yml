@@ -1,0 +1,82 @@
+name: Publish APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: '${{ steps.deployment.outputs.page_url }}'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-33 build-tools;33.0.2'
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: '${{ secrets.ANDROID_KEYSTORE_BASE64 }}'
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Build signed APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: '${{ secrets.ANDROID_KEYSTORE_PASSWORD }}'
+        run: |
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          ./gradlew --no-daemon assembleRelease "-PbuildVersionCode=$GITHUB_RUN_NUMBER" "-PbuildVersionName=0.1.$GITHUB_RUN_NUMBER"
+
+      - name: Verify and archive APK
+        env:
+          GH_TOKEN: '${{ github.token }}'
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          test -f "$apk"
+          "$ANDROID_HOME/build-tools/33.0.2/apksigner" verify --verbose "$apk"
+          mkdir -p site-build
+          short_sha="${GITHUB_SHA:0:12}"
+          filename="DirekteSport-TV-${short_sha}.apk"
+          cp "$apk" "site-build/$filename"
+          gh release create "build-$GITHUB_RUN_NUMBER" "site-build/$filename" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Build $GITHUB_RUN_NUMBER" --notes "APK fra commit $GITHUB_SHA" --prerelease
+
+      - name: Generate download history
+        env:
+          GH_TOKEN: '${{ github.token }}'
+        run: python3 pages/generate.py
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload download site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site-build
+
+      - name: Publish download site
+        id: deployment
+        uses: actions/deploy-pages@v4

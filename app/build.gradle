@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'dk.direktesport.tv'
+    compileSdk 33
+    buildToolsVersion '33.0.2'
+
+    defaultConfig {
+        applicationId 'dk.direktesport.tv'
+        minSdk 26
+        targetSdk 33
+        versionCode Integer.parseInt((project.findProperty('buildVersionCode') ?: '1').toString())
+        versionName (project.findProperty('buildVersionName') ?: '0.1.0').toString()
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH')
+    def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+    if (keystorePath && keystorePassword) {
+        signingConfigs {
+            release {
+                storeFile file(keystorePath)
+                storePassword keystorePassword
+                keyAlias 'direktesport-tv'
+                keyPassword keystorePassword
+            }
+        }
+        buildTypes {
+            release {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}

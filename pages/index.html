@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DirekteSport TV – APK-downloads</title>
+  <style>
+    body { margin: 0; min-height: 100vh; background: #10151e; color: #fff; font: 18px system-ui, sans-serif; }
+    main { max-width: 42rem; margin: auto; padding: 2rem; }
+    h1 { color: #f4c545; font-size: 2.5rem; }
+    a { color: #f4c545; }
+    a.download { display: inline-block; margin: 1rem 0; padding: 1rem 1.5rem; border-radius: .5rem; background: #f4c545; color: #10151e; font-weight: 700; text-decoration: none; }
+    p { line-height: 1.5; }
+    ol { padding-left: 1.5rem; }
+    li { margin: 0 0 1rem; overflow-wrap: anywhere; }
+    li span { display: block; color: #b7c0cf; font-size: .85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>DirekteSport TV</h1>
+    <p>APK til Nvidia Shield. Nye versioner bygges ved hvert commit på main.</p>
+    <a class="download" id="download" href="__LATEST_APK__">Download nyeste APK</a>
+    <p>Åbn den hentede APK på Shield, og tillad installation fra browseren eller filhåndteringen.</p>
+    <h2>Alle APK-versioner</h2>
+    <ol id="apk-list">
+__APK_LIST__
+    </ol>
+  </main>
+  <script>
+    const expectedRepo = 'https://github.com/skttl/DirekteSport-android-tv/releases/download/';
+    function valid(entry) {
+      return entry && /^DirekteSport-TV-[0-9a-f]{12}\.apk$/.test(entry.name)
+        && typeof entry.url === 'string' && entry.url.startsWith(expectedRepo);
+    }
+    fetch('history.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(response => response.ok ? response.json() : [])
+      .then(entries => {
+        if (!Array.isArray(entries) || !entries.length || !entries.every(valid)) return;
+        document.getElementById('download').href = entries[0].url;
+        const list = document.getElementById('apk-list');
+        list.replaceChildren();
+        for (const entry of entries) {
+          const item = document.createElement('li');
+          const link = document.createElement('a');
+          link.href = entry.url;
+          link.textContent = entry.name;
+          const detail = document.createElement('span');
+          detail.textContent = entry.build + ' · ' + entry.date + ' · ' +
+            (entry.size / 1048576).toFixed(1) + ' MB';
+          item.append(link, detail);
+          list.append(item);
+        }
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>

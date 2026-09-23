@@ -3,9 +3,11 @@ package dk.direktesport.tv;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.StateListDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -32,6 +34,7 @@ public final class MainActivity extends Activity {
     private static final int CARD = Color.rgb(30, 39, 53);
     private static final int ACCENT = Color.rgb(244, 197, 69);
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<Video> videos = new ArrayList<>();
     private final List<CatalogClient.Category> categories = new ArrayList<>();
@@ -53,10 +56,12 @@ public final class MainActivity extends Activity {
         buildUi();
         loadCategories();
         reload("Live og kommende udsendelser");
+        checkForUpdates(false);
     }
 
     @Override protected void onDestroy() {
         executor.shutdownNow();
+        updateExecutor.shutdownNow();
         super.onDestroy();
     }
 
@@ -73,6 +78,9 @@ public final class MainActivity extends Activity {
         TextView title = label("DIREKTE SPORT", 29, ACCENT);
         title.setTypeface(null, 1);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        Button updates = button("Tjek opdatering");
+        updates.setOnClickListener(v -> checkForUpdates(true));
+        header.addView(updates);
         Button login = button("Log ind / konto");
         login.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
         header.addView(login);
@@ -138,6 +146,46 @@ public final class MainActivity extends Activity {
         live.requestFocus();
     }
 
+    private void checkForUpdates(boolean manual) {
+        executor.execute(() -> {
+            try {
+                UpdateChecker.Update update = UpdateChecker.latest();
+                main.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (update.versionCode <= BuildConfig.VERSION_CODE) {
+                        if (manual) new AlertDialog.Builder(this)
+                                .setTitle("Ingen opdatering")
+                                .setMessage("Du har den nyeste version.")
+                                .setPositiveButton("OK", null).show();
+                        return;
+                    }
+                    new AlertDialog.Builder(this)
+                            .setTitle("Ny version tilgængelig")
+                            .setMessage("Build " + update.versionCode + " er klar. Den åbnes i browseren, hvor du kan hente og installere APK-filen.")
+                            .setPositiveButton("Åbn download", (dialog, which) -> {
+                                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(update.url));
+                                try {
+                                    startActivity(intent);
+                                } catch (android.content.ActivityNotFoundException error) {
+                                    new AlertDialog.Builder(this)
+                                            .setTitle("Ingen browser fundet")
+                                            .setMessage("Åbn downloadsiden på en browser: https://skttl.github.io/DirekteSport-android-tv/")
+                                            .setPositiveButton("OK", null).show();
+                                }
+                            })
+                            .setNegativeButton("Senere", null).show();
+                });
+            } catch (Exception error) {
+                if (manual) main.post(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    new AlertDialog.Builder(this)
+                            .setTitle("Kunne ikke tjekke opdateringer")
+                            .setMessage(error.getMessage())
+                            .setPositiveButton("OK", null).show();
+                });
+            }
+        });
+    }
     private void search() {
         search = searchInput.getText().toString().trim();
         if (search.isEmpty()) return;

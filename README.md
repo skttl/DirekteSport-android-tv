@@ -6,7 +6,7 @@ Privat Android TV-app til Nvidia Shield. Første milepæl viser DirekteSports ka
 
 Åbn [downloadsiden](https://skttl.github.io/DirekteSport-android-tv/) i Shield-browseren, og tryk **Download APK**. Åbn den hentede fil med en filhåndtering, og tillad installation fra den app, der åbner APK'en.
 
-De publicerede APK'er signeres med samme nøgle, så en ny APK kan opdatere en tidligere installation. Den lokale debug-APK i `app/build/outputs/apk/debug/` har en anden signatur og kan ikke installeres som opdatering til den publicerede APK.
+Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** for at kontrollere manuelt. Når en opdatering findes, åbner appen APK-linket i browseren, hvor du kan hente og installere den. De publicerede APK'er signeres med samme nøgle, så en ny APK kan opdatere en tidligere installation. Den lokale debug-APK i `app/build/outputs/apk/debug/` har en anden signatur og kan ikke installeres som opdatering til den publicerede APK.
 
 ## Prøv første milepæl
 
@@ -28,4 +28,3 @@ Kataloget hentes fra de JSON-endepunkter, som [DirekteSports hjemmeside](https:/
 ## Status
 
 Katalog-endepunkterne er kontrolleret uden login, og APK'en bygger lokalt. Login, videoafspilning og betalt adgang skal afprøves på Shield med den eksisterende JFM-konto. Der var ingen tilsluttet Android-enhed under udviklingen.
-

@@ -14,6 +14,8 @@
     ol { padding-left: 1.5rem; }
     li { margin: 0 0 1rem; overflow-wrap: anywhere; }
     li span { display: block; color: #b7c0cf; font-size: .85rem; }
+    li p { margin: .5rem 0; white-space: pre-line; }
+    li a.release { font-size: .85rem; }
   </style>
 </head>
 <body>
@@ -22,7 +24,7 @@
     <p>APK til Nvidia Shield. Nye versioner bygges ved hvert commit på main.</p>
     <a class="download" id="download" href="__LATEST_APK__">Download nyeste APK</a>
     <p>Åbn den hentede APK på Shield, og tillad installation fra browseren eller filhåndteringen.</p>
-    <h2>Alle APK-versioner</h2>
+    <h2>Seneste 10 versioner</h2>
     <ol id="apk-list">
 __APK_LIST__
     </ol>
@@ -31,7 +33,10 @@ __APK_LIST__
     const expectedRepo = 'https://github.com/skttl/DirekteSport-android-tv/releases/download/';
     function valid(entry) {
       return entry && /^DirekteSport-TV-[0-9a-f]{12}\.apk$/.test(entry.name)
-        && typeof entry.url === 'string' && entry.url.startsWith(expectedRepo);
+        && typeof entry.url === 'string' && entry.url.startsWith(expectedRepo)
+        && typeof entry.notes === 'string'
+        && typeof entry.release_url === 'string'
+        && entry.release_url.startsWith('https://github.com/skttl/DirekteSport-android-tv/releases/tag/');
     }
     fetch('history.json?t=' + Date.now(), { cache: 'no-store' })
       .then(response => response.ok ? response.json() : [])
@@ -48,7 +53,13 @@ __APK_LIST__
           const detail = document.createElement('span');
           detail.textContent = entry.build + ' · ' + entry.date + ' · ' +
             (entry.size >= 1048576 ? (entry.size / 1048576).toFixed(1) + ' MB' : Math.round(entry.size / 1024) + ' KB');
-          item.append(link, detail);
+          const notes = document.createElement('p');
+          notes.textContent = entry.notes;
+          const release = document.createElement('a');
+          release.className = 'release';
+          release.href = entry.release_url;
+          release.textContent = 'Se release på GitHub';
+          item.append(link, detail, notes, release);
           list.append(item);
         }
       })

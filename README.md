@@ -21,7 +21,7 @@ Appen prøver Androids egen videoplayer, hvis webafspilleren giver en direkte HT
 
 Brug JDK 17, Android SDK Platform 35 og Build Tools 35.0.0. Sæt `ANDROID_HOME` til SDK-mappen, og kør `gradlew.bat assembleDebug` i projektmappen. Den resulterende APK ligger i `app/build/outputs/apk/debug/`.
 
-Hvert push til `main` starter `.github/workflows/publish-apk.yml`. Workflowet bygger en signeret APK med stigende Android-versionskode og et nyt filnavn med commit-id. Hver APK arkiveres som et GitHub-download, og GitHub Pages viser en HTML-liste med alle versioner og direkte links. Siden opdaterer også listen via en cache-fri forespørgsel. Repository secrets `ANDROID_KEYSTORE_BASE64` og `ANDROID_KEYSTORE_PASSWORD` er nødvendige for signering; nøglen ligger ikke i Git.
+Hvert push til `main` starter `.github/workflows/publish-apk.yml`. Workflowet bygger en signeret APK med stigende Android-versionskode og et nyt filnavn med commit-id. Hver APK arkiveres som et GitHub-download, og GitHub Pages viser de seneste 10 versioner med direkte APK-links og versionsnoter. Nye versionsnoter hentes fra commit-beskeden; ældre releases beholder deres eksisterende beskrivelse. Alle tidligere APK'er ligger fortsat under GitHub Releases. Siden opdaterer listen via en cache-fri forespørgsel. Repository secrets `ANDROID_KEYSTORE_BASE64` og `ANDROID_KEYSTORE_PASSWORD` er nødvendige for signering; nøglen ligger ikke i Git.
 
 Kataloget hentes fra de JSON-endepunkter, som [DirekteSports hjemmeside](https://direktesport.dk/) selv bruger. De er ikke dokumenteret som et offentligt tredjeparts-API og kan ændre sig. Login og betaling styres af DirekteSport/JFM; appen gemmer ikke adgangskoden selv og forsøger ikke at omgå abonnementsadgang.
 

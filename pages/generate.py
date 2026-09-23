@@ -1,4 +1,4 @@
-"""Build the GitHub Pages download list from archived APK releases."""
+"""Build the GitHub Pages download list from the 10 newest APK releases."""
 
 import html
 import json
@@ -38,7 +38,10 @@ def api_pages(path):
 
 entries = []
 query = urlencode({"per_page": 100, "nonce": nonce})
-for release in api_pages(f"releases?{query}"):
+releases = api_pages(f"releases?{query}")
+releases = [release for release in releases if re.fullmatch(r"build-[1-9][0-9]*", release["tag_name"])]
+releases.sort(key=lambda release: int(release["tag_name"].removeprefix("build-")), reverse=True)
+for release in releases[:10]:
     assets_query = urlencode({"per_page": 100, "nonce": nonce})
     for asset in api_pages(f"releases/{release['id']}/assets?{assets_query}"):
         name = asset["name"]
@@ -50,10 +53,13 @@ for release in api_pages(f"releases?{query}"):
                     "date": release["published_at"][:10],
                     "size": asset["size"],
                     "build": release["tag_name"],
+                    "notes": (release.get("body") or "").strip(),
+                    "release_url": release["html_url"],
                 }
             )
 
 entries.sort(key=lambda entry: int(entry["build"].removeprefix("build-")), reverse=True)
+entries = entries[:10]
 if not entries:
     raise RuntimeError("No archived APKs found")
 
@@ -66,7 +72,9 @@ rows = "\n".join(
     f'<li><a href="{html.escape(entry["url"], quote=True)}">'
     f'{html.escape(entry["name"])}</a> '
     f'<span>Build {html.escape(entry["build"].removeprefix("build-"))}'
-    f' · {entry["date"]} · {size_label(entry["size"])}</span></li>'
+    f' · {entry["date"]} · {size_label(entry["size"])}</span>'
+    f'<p>{html.escape(entry["notes"])}</p>'
+    f'<a class="release" href="{html.escape(entry["release_url"], quote=True)}">Se release på GitHub</a></li>'
     for entry in entries
 )
 template = Path("pages/index.html").read_text(encoding="utf-8")

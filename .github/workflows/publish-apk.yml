@@ -62,7 +62,8 @@ jobs:
           short_sha="${GITHUB_SHA:0:12}"
           filename="DirekteSport-TV-${short_sha}.apk"
           cp "$apk" "site-build/$filename"
-          gh release create "build-$GITHUB_RUN_NUMBER" "site-build/$filename" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Build $GITHUB_RUN_NUMBER" --notes "APK fra commit $GITHUB_SHA" --prerelease
+          git log -1 --format='Ændringer i denne version%n%n%s%n%b' > "$RUNNER_TEMP/release-notes.md"
+          gh release create "build-$GITHUB_RUN_NUMBER" "site-build/$filename" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Build $GITHUB_RUN_NUMBER" --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease
 
       - name: Generate download history
         env:

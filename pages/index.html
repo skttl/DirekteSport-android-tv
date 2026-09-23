@@ -47,7 +47,7 @@ __APK_LIST__
           link.textContent = entry.name;
           const detail = document.createElement('span');
           detail.textContent = entry.build + ' · ' + entry.date + ' · ' +
-            (entry.size / 1048576).toFixed(1) + ' MB';
+            (entry.size >= 1048576 ? (entry.size / 1048576).toFixed(1) + ' MB' : Math.round(entry.size / 1024) + ' KB');
           item.append(link, detail);
           list.append(item);
         }
@@ -56,3 +56,4 @@ __APK_LIST__
   </script>
 </body>
 </html>
+

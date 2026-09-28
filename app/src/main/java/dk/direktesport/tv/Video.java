@@ -7,6 +7,7 @@ final class Video {
     final String type;
     final String title;
     final String category;
+    final String imageUrl;
     final String state;
     final boolean paid;
     final long startsAt;
@@ -16,6 +17,7 @@ final class Video {
         type = json.optString("type");
         title = json.optString("headline", "Uden titel");
         category = json.isNull("categoryName") ? "" : json.optString("categoryName", "");
+        imageUrl = json.optString("imageUrl", "");
         state = json.optString("state", "");
         paid = json.optBoolean("paid");
         startsAt = json.optLong("broadcastStart");

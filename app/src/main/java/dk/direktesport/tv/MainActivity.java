@@ -6,14 +6,18 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.pm.PackageInfo;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Insets;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.LruCache;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
@@ -24,6 +28,7 @@ import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -35,6 +40,9 @@ import com.google.android.gms.cast.framework.CastButtonFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.URLConnection;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -43,16 +51,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
-    private static final int BACKGROUND = Color.rgb(16, 21, 30);
-    private static final int CARD = Color.rgb(30, 39, 53);
-    private static final int ACCENT = Color.rgb(244, 197, 69);
+    private static final int BACKGROUND = Color.rgb(10, 26, 26);
+    private static final int CARD = Color.rgb(23, 63, 63);
+    private static final int ACCENT = Color.rgb(92, 255, 154);
+    private static final int MUTED = Color.rgb(181, 192, 189);
     private static final int UNKNOWN_SOURCES_REQUEST = 1;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService images = Executors.newFixedThreadPool(3);
+    private final LruCache<String, Bitmap> imageCache = new LruCache<String, Bitmap>(8 * 1024 * 1024) {
+        @Override protected int sizeOf(String key, Bitmap bitmap) { return bitmap.getByteCount(); }
+    };
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<Video> videos = new ArrayList<>();
     private final List<CatalogClient.Category> categories = new ArrayList<>();
     private GridView grid;
+    private boolean compact;
     private VideoAdapter adapter;
     private TextView status;
     private Button categoryButton;
@@ -83,13 +97,16 @@ public final class MainActivity extends Activity {
         if (downloadDialog != null) downloadDialog.dismiss();
         executor.shutdownNow();
         updateExecutor.shutdownNow();
+        images.shutdownNow();
         super.onDestroy();
     }
 
     private void buildUi() {
-        boolean compact = getResources().getConfiguration().smallestScreenWidthDp < 600;
-        int sidePadding = dp(compact ? 12 : 30);
-        int topPadding = dp(compact ? 8 : 22);
+        Configuration configuration = getResources().getConfiguration();
+        compact = (configuration.uiMode & Configuration.UI_MODE_TYPE_MASK)
+                != Configuration.UI_MODE_TYPE_TELEVISION && configuration.smallestScreenWidthDp < 600;
+        int sidePadding = dp(compact ? 12 : 48);
+        int topPadding = dp(compact ? 8 : 28);
         int bottomPadding = dp(compact ? 8 : 18);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -107,8 +124,8 @@ public final class MainActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(header, new LinearLayout.LayoutParams(-1, dp(compact ? 45 : 58)));
-        TextView title = label("DIREKTE SPORT", compact ? 24 : 29, ACCENT);
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(compact ? 45 : 72)));
+        TextView title = label("DIREKTE SPORT", compact ? 24 : 34, ACCENT);
         title.setTypeface(null, 1);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         if ((getResources().getConfiguration().uiMode & Configuration.UI_MODE_TYPE_MASK)
@@ -160,8 +177,14 @@ public final class MainActivity extends Activity {
         searchInput.setSingleLine(true);
         searchInput.setHint("Søg i videoer");
         searchInput.setTextColor(Color.WHITE);
-        searchInput.setHintTextColor(Color.LTGRAY);
-        searchInput.setBackgroundColor(CARD);
+        searchInput.setHintTextColor(MUTED);
+        StateListDrawable searchBackground = new StateListDrawable();
+        GradientDrawable searchFocused = new GradientDrawable();
+        searchFocused.setColor(CARD);
+        searchFocused.setStroke(dp(2), ACCENT);
+        searchBackground.addState(new int[]{android.R.attr.state_focused}, searchFocused);
+        searchBackground.addState(new int[]{}, new ColorDrawable(CARD));
+        searchInput.setBackground(searchBackground);
         searchInput.setPadding(dp(14), 0, dp(14), 0);
         searchInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
         LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(0, dp(46), 1);
@@ -171,16 +194,16 @@ public final class MainActivity extends Activity {
         searchButton.setOnClickListener(v -> search());
         searchRow.addView(searchButton);
         searchInput.setOnEditorActionListener((v, action, event) -> { search(); return true; });
-        status = label("Henter videoer …", 16, Color.LTGRAY);
-        status.setPadding(0, dp(8), 0, dp(12));
+        status = label("Henter videoer …", compact ? 16 : 20, MUTED);
+        status.setPadding(0, dp(compact ? 8 : 20), 0, dp(12));
         root.addView(status);
 
         grid = new GridView(this);
         grid.setNumColumns(compact ? 1 : 3);
         grid.setColumnWidth(dp(280));
         grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
-        grid.setHorizontalSpacing(dp(14));
-        grid.setVerticalSpacing(dp(14));
+        grid.setHorizontalSpacing(dp(compact ? 14 : 22));
+        grid.setVerticalSpacing(dp(compact ? 14 : 22));
         grid.setSelector(android.R.color.transparent);
         grid.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         grid.setFocusable(true);
@@ -420,20 +443,32 @@ public final class MainActivity extends Activity {
             Video video = videos.get(position);
             LinearLayout card = new LinearLayout(MainActivity.this);
             card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(18), dp(16), dp(18), dp(16));
+            card.setPadding(dp(3), dp(3), dp(3), dp(3));
             StateListDrawable background = new StateListDrawable();
-            background.addState(new int[]{android.R.attr.state_selected}, new ColorDrawable(Color.rgb(66, 77, 96)));
+            GradientDrawable focused = new GradientDrawable();
+            focused.setColor(CARD);
+            focused.setStroke(dp(3), ACCENT);
+            background.addState(new int[]{android.R.attr.state_selected}, focused);
             background.addState(new int[]{}, new ColorDrawable(CARD));
             card.setBackground(background);
-            TextView badge = label(video.paid ? "ABONNEMENT" : "GRATIS", 13, video.paid ? ACCENT : Color.rgb(105, 224, 174));
-            card.addView(badge);
-            TextView title = label(video.title, 20, Color.WHITE);
+            ImageView image = new ImageView(MainActivity.this);
+            image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            image.setBackgroundColor(Color.rgb(16, 45, 45));
+            card.addView(image, new LinearLayout.LayoutParams(-1, dp(compact ? 140 : 150)));
+            loadImage(image, video.imageUrl);
+            LinearLayout text = new LinearLayout(MainActivity.this);
+            text.setOrientation(LinearLayout.VERTICAL);
+            text.setPadding(dp(14), dp(8), dp(14), dp(10));
+            card.addView(text, new LinearLayout.LayoutParams(-1, 0, 1));
+            TextView badge = label(video.paid ? "ABONNEMENT" : "GRATIS", 12, ACCENT);
+            text.addView(badge);
+            TextView title = label(video.title, compact ? 19 : 21, Color.WHITE);
             title.setTypeface(null, 1);
-            title.setMaxLines(3);
+            title.setMaxLines(2);
             title.setEllipsize(android.text.TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, 0, 1);
-            titleParams.topMargin = dp(10);
-            card.addView(title, titleParams);
+            titleParams.topMargin = dp(4);
+            text.addView(title, titleParams);
             String detail = video.category;
             if (video.isLive()) {
                 long now = System.currentTimeMillis() / 1000;
@@ -441,20 +476,47 @@ public final class MainActivity extends Activity {
                         video.startsAt > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date(video.startsAt * 1000)) : "Live")
                         + (detail.isEmpty() ? "" : " · " + detail);
             }
-            TextView metadata = label(detail, 14, Color.LTGRAY);
+            TextView metadata = label(detail, 14, MUTED);
             metadata.setMaxLines(1);
-            card.addView(metadata);
-            card.setLayoutParams(new AbsListView.LayoutParams(-1, dp(180)));
+            text.addView(metadata);
+            card.setLayoutParams(new AbsListView.LayoutParams(-1, dp(compact ? 250 : 270)));
             return card;
         }
+    }
+
+    private void loadImage(ImageView view, String url) {
+        if (url.isEmpty()) return;
+        view.setTag(url);
+        Bitmap cached = imageCache.get(url);
+        if (cached != null) { view.setImageBitmap(cached); return; }
+        images.execute(() -> {
+            try {
+                Bitmap bitmap;
+                URLConnection connection = new URL(url).openConnection();
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(10000);
+                try (InputStream stream = connection.getInputStream()) {
+                    bitmap = BitmapFactory.decodeStream(stream);
+                }
+                if (bitmap == null) return;
+                imageCache.put(url, bitmap);
+                main.post(() -> { if (url.equals(view.getTag())) view.setImageBitmap(bitmap); });
+            } catch (IOException ignored) { }
+        });
     }
 
     private Button button(String text) {
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
-        button.setTextColor(Color.WHITE);
-        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(CARD));
+        button.setTextColor(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
+                new int[]{BACKGROUND, Color.WHITE}));
+        StateListDrawable background = new StateListDrawable();
+        background.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(ACCENT));
+        background.addState(new int[]{}, new ColorDrawable(CARD));
+        button.setBackground(background);
+        button.setPadding(dp(18), 0, dp(18), 0);
         return button;
     }
 

@@ -1,6 +1,7 @@
 package dk.direktesport.tv;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
@@ -14,11 +15,13 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.webkit.CookieManager;
 
 import androidx.mediarouter.app.MediaRouteButton;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -50,6 +53,19 @@ public final class PlayerActivity extends Activity {
     private ExoPlayer player;
     private TextView message;
     private ScrollView chooser;
+    private LinearLayout controls;
+    private SeekBar progress;
+    private TextView time;
+    private Button playbackButton;
+    private final Runnable hideControls = () -> {
+        if (controls != null && chooser == null) controls.setVisibility(View.GONE);
+    };
+    private final Runnable updateProgress = new Runnable() {
+        @Override public void run() {
+            if (controls != null && controls.getVisibility() == View.VISIBLE) refreshControls();
+            main.postDelayed(this, 1000);
+        }
+    };
     private int selected;
     private int requestGeneration;
     private boolean compact;
@@ -89,9 +105,9 @@ public final class PlayerActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         Configuration config = getResources().getConfiguration();
-        compact = config.smallestScreenWidthDp < 600;
         isTv = (config.uiMode & Configuration.UI_MODE_TYPE_MASK)
                 == Configuration.UI_MODE_TYPE_TELEVISION;
+        compact = !isTv && config.smallestScreenWidthDp < 600;
         getWindow().getDecorView().setSystemUiVisibility(5894 | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
         root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
@@ -102,6 +118,7 @@ public final class PlayerActivity extends Activity {
         playerView.setPlayer(player);
         playerView.setUseController(!isTv);
         root.addView(playerView, new FrameLayout.LayoutParams(-1, -1));
+        if (isTv) buildControls();
 
         message = new TextView(this);
         message.setTextColor(Color.WHITE);
@@ -112,13 +129,17 @@ public final class PlayerActivity extends Activity {
         player.addListener(new Player.Listener() {
             @Override public void onPlaybackStateChanged(int state) {
                 if (state == Player.STATE_READY) message.setVisibility(View.GONE);
+                refreshControls();
             }
+
+            @Override public void onIsPlayingChanged(boolean playing) { refreshControls(); }
 
             @Override public void onPlayerError(PlaybackException error) {
                 message.setText("Kunne ikke afspille videoen: " + error.getMessage());
                 message.setVisibility(View.VISIBLE);
             }
         });
+        if (isTv) main.post(updateProgress);
 
         if (!isTv) {
             castContext = CastContext.getSharedInstance(this);
@@ -264,13 +285,142 @@ public final class PlayerActivity extends Activity {
         }
     }
 
+    private void buildControls() {
+        controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.VERTICAL);
+        controls.setPadding(dp(48), dp(26), dp(48), dp(30));
+        controls.setBackgroundColor(Color.argb(245, 10, 26, 26));
+        controls.setVisibility(View.GONE);
+        FrameLayout.LayoutParams panel = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+        root.addView(controls, panel);
+
+        TextView title = new TextView(this);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(26);
+        title.setMaxLines(1);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        controls.addView(title);
+        controls.setTag(title);
+
+        progress = new SeekBar(this);
+        progress.setMax(1000);
+        progress.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
+                if (fromUser && player.isCurrentMediaItemSeekable() && player.getDuration() > 0)
+                    player.seekTo(player.getDuration() * value / 1000);
+            }
+            @Override public void onStartTrackingTouch(SeekBar bar) {}
+            @Override public void onStopTrackingTouch(SeekBar bar) { scheduleControlsHide(); }
+        });
+        controls.addView(progress, new LinearLayout.LayoutParams(-1, dp(52)));
+
+        time = new TextView(this);
+        time.setTextColor(Color.rgb(181, 192, 189));
+        time.setTextSize(16);
+        controls.addView(time);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams row = new LinearLayout.LayoutParams(-1, dp(64));
+        row.topMargin = dp(16);
+        controls.addView(actions, row);
+        Button back = controlButton("−10 sek");
+        back.setOnClickListener(v -> seek(-10000));
+        actions.addView(back);
+        playbackButton = controlButton("Pause");
+        playbackButton.setOnClickListener(v -> {
+            if (player.isPlaying()) player.pause(); else player.play();
+            refreshControls();
+        });
+        actions.addView(playbackButton);
+        Button forward = controlButton("+10 sek");
+        forward.setOnClickListener(v -> seek(10000));
+        actions.addView(forward);
+        Button speed = controlButton("Hastighed");
+        speed.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("Afspilningshastighed")
+                .setSingleChoiceItems(new String[]{"0,75×", "Normal", "1,25×", "1,5×", "2×"},
+                        speedIndex(), (dialog, which) -> {
+                            player.setPlaybackSpeed(new float[]{0.75f, 1f, 1.25f, 1.5f, 2f}[which]);
+                            dialog.dismiss();
+                            scheduleControlsHide();
+                        }).show());
+        actions.addView(speed);
+        Button videos = controlButton("Andre videoer");
+        videos.setOnClickListener(v -> showChooser());
+        actions.addView(videos);
+        playbackButton.requestFocus();
+    }
+
+    private Button controlButton(String label) {
+        Button button = new Button(this);
+        button.setAllCaps(false);
+        button.setText(label);
+        button.setTextSize(17);
+        button.setTextColor(Color.WHITE);
+        button.setBackgroundTintList(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
+                new int[]{Color.rgb(92, 255, 154), Color.rgb(23, 63, 63)}));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(58), 1);
+        params.rightMargin = dp(10);
+        button.setLayoutParams(params);
+        return button;
+    }
+
+    private int speedIndex() {
+        float speed = player.getPlaybackParameters().speed;
+        float[] values = {0.75f, 1f, 1.25f, 1.5f, 2f};
+        for (int i = 0; i < values.length; i++) if (speed == values[i]) return i;
+        return 1;
+    }
+
+    private void refreshControls() {
+        if (controls == null) return;
+        Video video = selected >= 0 && selected < queue.size() ? queue.get(selected) : null;
+        ((TextView) controls.getTag()).setText(video == null ? "DirekteSport" : video.title);
+        playbackButton.setText(player.isPlaying() ? "Pause" : "Afspil");
+        long duration = player.getDuration();
+        boolean seekable = player.isCurrentMediaItemSeekable() && duration > 0 && duration != C.TIME_UNSET;
+        progress.setEnabled(seekable);
+        progress.setProgress(seekable ? (int) (1000 * player.getCurrentPosition() / duration) : 0);
+        time.setText(seekable ? formatTime(player.getCurrentPosition()) + " / " + formatTime(duration)
+                : video != null && video.isLive() ? "LIVE · Spoling afhænger af streamen"
+                : "Tidslinje ikke tilgængelig");
+    }
+
+    private String formatTime(long milliseconds) {
+        long seconds = Math.max(0, milliseconds / 1000);
+        return String.format(java.util.Locale.getDefault(), "%02d:%02d:%02d",
+                seconds / 3600, seconds / 60 % 60, seconds % 60);
+    }
+
+    private void scheduleControlsHide() {
+        main.removeCallbacks(hideControls);
+        main.postDelayed(hideControls, 10000);
+    }
+
+    private void showControls() {
+        controls.setVisibility(View.VISIBLE);
+        refreshControls();
+        playbackButton.requestFocus();
+        scheduleControlsHide();
+    }
+
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() != KeyEvent.ACTION_DOWN || chooser != null || !isTv)
             return super.dispatchKeyEvent(event);
+        if (controls.getVisibility() == View.VISIBLE) {
+            scheduleControlsHide();
+            if (event.getKeyCode() == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+                if (player.isPlaying()) player.pause(); else player.play();
+                return true;
+            }
+            return super.dispatchKeyEvent(event);
+        }
         switch (event.getKeyCode()) {
             case KeyEvent.KEYCODE_DPAD_UP:
             case KeyEvent.KEYCODE_DPAD_DOWN:
-                showChooser();
+                showControls();
                 return true;
             case KeyEvent.KEYCODE_DPAD_LEFT:
                 seek(-10000);
@@ -281,6 +431,7 @@ public final class PlayerActivity extends Activity {
             case KeyEvent.KEYCODE_DPAD_CENTER:
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
                 if (player.isPlaying()) player.pause(); else player.play();
+                showControls();
                 return true;
             default:
                 return super.dispatchKeyEvent(event);
@@ -290,19 +441,20 @@ public final class PlayerActivity extends Activity {
     private void seek(long milliseconds) {
         if (player.isCurrentMediaItemSeekable()) {
             player.seekTo(Math.max(0, player.getCurrentPosition() + milliseconds));
+            refreshControls();
         }
     }
 
     private void showChooser() {
         if (queue.isEmpty() || chooser != null) return;
         chooser = new ScrollView(this);
-        chooser.setBackgroundColor(Color.argb(245, 16, 21, 30));
+        chooser.setBackgroundColor(Color.argb(250, 10, 26, 26));
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         list.setPadding(dp(32), dp(20), dp(32), dp(20));
         chooser.addView(list);
         TextView title = new TextView(this);
-        title.setText("Vælg video · Tilbage lukker listen");
+        title.setText("Andre videoer · Tilbage lukker listen");
         title.setTextColor(Color.WHITE);
         title.setTextSize(24);
         list.addView(title);
@@ -321,6 +473,9 @@ public final class PlayerActivity extends Activity {
                     + (video.paid ? "  · Abonnement" : "  · Gratis"));
             item.setTextColor(Color.WHITE);
             item.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            item.setBackgroundTintList(new android.content.res.ColorStateList(
+                    new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
+                    new int[]{Color.rgb(92, 255, 154), Color.rgb(23, 63, 63)}));
             item.setOnClickListener(v -> {
                 selected = index;
                 hideChooser();
@@ -339,10 +494,19 @@ public final class PlayerActivity extends Activity {
         if (chooser == null) return;
         root.removeView(chooser);
         chooser = null;
+        if (controls != null && controls.getVisibility() == View.VISIBLE) {
+            playbackButton.requestFocus();
+            scheduleControlsHide();
+        }
     }
 
     @Override public void onBackPressed() {
         if (chooser != null) { hideChooser(); return; }
+        if (controls != null && controls.getVisibility() == View.VISIBLE) {
+            controls.setVisibility(View.GONE);
+            main.removeCallbacks(hideControls);
+            return;
+        }
         super.onBackPressed();
     }
 
@@ -353,6 +517,8 @@ public final class PlayerActivity extends Activity {
 
     @Override protected void onDestroy() {
         requestGeneration++;
+        main.removeCallbacks(updateProgress);
+        main.removeCallbacks(hideControls);
         if (castContext != null) {
             castContext.getSessionManager().removeSessionManagerListener(castListener, CastSession.class);
         }

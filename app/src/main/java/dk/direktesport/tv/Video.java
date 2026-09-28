@@ -6,6 +6,7 @@ final class Video {
     final String id;
     final String type;
     final String title;
+    final String description;
     final String category;
     final String imageUrl;
     final String state;
@@ -16,6 +17,7 @@ final class Video {
         id = json.optString("id");
         type = json.optString("type");
         title = json.optString("headline", "Uden titel");
+        description = json.optString("description", "");
         category = json.isNull("categoryName") ? "" : json.optString("categoryName", "");
         imageUrl = json.optString("imageUrl", "");
         state = json.optString("state", "");

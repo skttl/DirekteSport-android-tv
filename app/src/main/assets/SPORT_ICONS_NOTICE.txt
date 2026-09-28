@@ -1,0 +1,6 @@
+Sport icons: Pictogrammers Material Design Icons
+Source: https://github.com/Templarian/MaterialDesign/tree/master/svg
+Icons: basketball, hockey-sticks, soccer, handball, hockey-puck,
+boxing-glove, racing-helmet, volleyball, trophy.
+Licenses: LICENSE-pictogrammers.txt and LICENSE-material-design-icons.txt
+Converted from SVG to Android VectorDrawable paths without shape changes.

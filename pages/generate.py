@@ -87,6 +87,6 @@ Path("site-build/history.json").write_text(
     json.dumps(entries, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
 )
 Path("site-build/assets").mkdir(exist_ok=True)
-for asset in ("ds-play.svg", "katalog.png", "afspiller.png", "andre-videoer.png"):
+for asset in ("ds-play.svg", "katalog.png", "speedway.png", "floorball.png", "afspiller.png", "andre-videoer.png"):
     shutil.copyfile(Path("pages/assets") / asset, Path("site-build/assets") / asset)
 shutil.copyfile("pages/style.css", "site-build/style.css")

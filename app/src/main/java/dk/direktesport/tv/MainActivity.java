@@ -2,7 +2,10 @@ package dk.direktesport.tv;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.animation.ValueAnimator;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.content.pm.PackageInfo;
 import android.graphics.Color;
@@ -29,10 +32,13 @@ import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.GridView;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.core.content.FileProvider;
@@ -50,6 +56,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -70,6 +78,15 @@ public final class MainActivity extends Activity {
     private final List<Video> videos = new ArrayList<>();
     private final List<CatalogClient.Category> categories = new ArrayList<>();
     private GridView grid;
+    private LinearLayout tvRows;
+    private LinearLayout tvList;
+    private ScrollView tvScroll;
+    private LinearLayout favoriteNav;
+    private TextView favoriteToggle;
+    private View homeNav;
+    private View searchNav;
+    private View categoryNav;
+    private String pageSlug = "";
     private boolean compact;
     private boolean isTv;
     private VideoAdapter adapter;
@@ -84,7 +101,7 @@ public final class MainActivity extends Activity {
     private String categoryId = "";
     private String search = "";
     private int page;
-    private int generation;
+    private volatile int generation;
     private boolean loading;
     private boolean hasMore = true;
     private boolean focusResults;
@@ -100,8 +117,9 @@ public final class MainActivity extends Activity {
         if (state != null && state.getString("pendingApk") != null) {
             pendingApk = new File(state.getString("pendingApk"));
         }
-        loadCategories();
-        reload("Live og kommende udsendelser");
+        if (!isTv) loadCategories();
+        if (isTv) mode = "home";
+        reload(isTv ? "Forside" : "Live og kommende udsendelser");
         checkForUpdates(false);
     }
 
@@ -118,6 +136,10 @@ public final class MainActivity extends Activity {
         isTv = (configuration.uiMode & Configuration.UI_MODE_TYPE_MASK)
                 == Configuration.UI_MODE_TYPE_TELEVISION;
         compact = !isTv && configuration.smallestScreenWidthDp < 600;
+        if (isTv) {
+            buildTvUi();
+            return;
+        }
         int sidePadding = dp(compact ? 12 : 48);
         int topPadding = dp(compact ? 8 : 28);
         int bottomPadding = dp(compact ? 8 : 28);
@@ -246,6 +268,388 @@ public final class MainActivity extends Activity {
         });
         root.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
         liveButton.requestFocus();
+    }
+
+    private void buildTvUi() {
+        LinearLayout root = new LinearLayout(this);
+        root.setBackgroundColor(BACKGROUND);
+        setContentView(root);
+
+        LinearLayout sidebar = new LinearLayout(this);
+        sidebar.setOrientation(LinearLayout.VERTICAL);
+        sidebar.setPadding(dp(7), dp(12), dp(7), dp(12));
+        sidebar.setBackgroundColor(Color.rgb(15, 39, 39));
+        root.addView(sidebar, new LinearLayout.LayoutParams(dp(118), -1));
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.drawable.ds_play_icon);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        logo.setFocusable(true);
+        logo.setContentDescription("Forside");
+        logo.setOnClickListener(v -> openTvPage("", "Forside"));
+        tvFocus(logo);
+        sidebar.addView(logo, new LinearLayout.LayoutParams(-1, dp(82)));
+        homeNav = logo;
+
+        ScrollView navScroll = new ScrollView(this);
+        navScroll.setVerticalScrollBarEnabled(false);
+        sidebar.addView(navScroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        LinearLayout navItems = new LinearLayout(this);
+        navItems.setOrientation(LinearLayout.VERTICAL);
+        navScroll.addView(navItems);
+        navItems.addView(tvNavItem(R.drawable.nav_account, "Log ind",
+                v -> startActivity(new Intent(this, LoginActivity.class))), tvNavParams());
+        searchNav = tvNavItem(R.drawable.nav_search, "Søg", v -> showSearchDialog());
+        navItems.addView(searchNav, tvNavParams());
+        categoryNav = tvNavItem(R.drawable.nav_sports, "Sportsgrene", v -> chooseCategory());
+        navItems.addView(categoryNav, tvNavParams());
+        favoriteNav = new LinearLayout(this);
+        favoriteNav.setOrientation(LinearLayout.VERTICAL);
+        navItems.addView(favoriteNav);
+        refreshFavoriteLinks();
+        sidebar.addView(tvNavItem(R.drawable.nav_update, "Opdater",
+                v -> checkForUpdates(true)), tvNavParams());
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20), dp(20), 0, 0);
+        root.addView(content, new LinearLayout.LayoutParams(0, -1, 1));
+        LinearLayout heading = new LinearLayout(this);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        content.addView(heading);
+        status = label("Henter videoer …", 28, Color.WHITE);
+        status.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+        status.setPadding(dp(6), 0, dp(30), dp(12));
+        heading.addView(status, new LinearLayout.LayoutParams(0, -2, 1));
+        favoriteToggle = label("☆  Favorit", 16, ACCENT);
+        favoriteToggle.setFocusable(true);
+        favoriteToggle.setPadding(dp(16), dp(8), dp(20), dp(8));
+        favoriteToggle.setOnClickListener(v -> toggleFavorite());
+        tvFocus(favoriteToggle);
+        heading.addView(favoriteToggle);
+        favoriteToggle.setVisibility(View.GONE);
+        tvScroll = new ScrollView(this);
+        tvScroll.setFillViewport(true);
+        tvScroll.setVerticalScrollBarEnabled(false);
+        tvScroll.setClipChildren(false);
+        content.addView(tvScroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        tvRows = new LinearLayout(this);
+        tvRows.setOrientation(LinearLayout.VERTICAL);
+        tvRows.setPadding(0, 0, 0, dp(36));
+        tvRows.setClipChildren(false);
+        tvScroll.addView(tvRows);
+        homeNav.requestFocus();
+    }
+
+    private LinearLayout.LayoutParams tvNavParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(70));
+        params.bottomMargin = dp(6);
+        return params;
+    }
+
+    private View tvNavItem(int icon, String title, View.OnClickListener action) {
+        LinearLayout item = new LinearLayout(this);
+        item.setOrientation(LinearLayout.VERTICAL);
+        item.setGravity(Gravity.CENTER);
+        item.setFocusable(true);
+        item.setContentDescription(title);
+        item.setOnClickListener(action);
+        ImageView image = new ImageView(this);
+        image.setImageResource(icon);
+        image.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+        item.addView(image, new LinearLayout.LayoutParams(dp(32), dp(32)));
+        TextView caption = label(title, 11, MUTED);
+        caption.setGravity(Gravity.CENTER);
+        caption.setSingleLine(true);
+        caption.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams captionParams = new LinearLayout.LayoutParams(-1, -2);
+        captionParams.topMargin = dp(3);
+        item.addView(caption, captionParams);
+        item.setOnFocusChangeListener((view, focused) -> {
+            view.setBackgroundColor(focused ? CARD : Color.TRANSPARENT);
+            image.setImageTintList(ColorStateList.valueOf(focused ? ACCENT : Color.WHITE));
+            caption.setTextColor(focused ? Color.WHITE : MUTED);
+            if (ValueAnimator.areAnimatorsEnabled()) image.animate()
+                    .scaleX(focused ? 1.08f : 1f).scaleY(focused ? 1.08f : 1f)
+                    .setDuration(150).start();
+        });
+        return item;
+    }
+
+    private void tvFocus(View view) {
+        view.setOnFocusChangeListener((item, focused) -> {
+            item.setBackgroundColor(focused ? CARD : Color.TRANSPARENT);
+        });
+    }
+
+    private void refreshFavoriteLinks() {
+        favoriteNav.removeAllViews();
+        Set<String> favorites = getPreferences(MODE_PRIVATE).getStringSet("favorite_sports", new HashSet<>());
+        for (CatalogClient.Category sport : CatalogClient.siteSports()) {
+            if (!favorites.contains(sport.id)) continue;
+            favoriteNav.addView(tvNavItem(sportIcon(sport.id), sport.name,
+                    v -> openTvPage(sport.id, sport.name)), tvNavParams());
+        }
+    }
+
+    private int sportIcon(String slug) {
+        switch (slug) {
+            case "basketball": return R.drawable.sport_basketball;
+            case "floorball": return R.drawable.sport_floorball;
+            case "fodbold": return R.drawable.sport_fodbold;
+            case "haandbold": return R.drawable.sport_haandbold;
+            case "ishockey": return R.drawable.sport_ishockey;
+            case "kampsport": return R.drawable.sport_kampsport;
+            case "speedway": return R.drawable.sport_speedway;
+            case "volleyball": return R.drawable.sport_volleyball;
+            case "oevrigsport": return R.drawable.sport_oevrigsport;
+            default: return R.drawable.nav_star;
+        }
+    }
+
+    private void toggleFavorite() {
+        if (pageSlug.isEmpty()) return;
+        SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        Set<String> favorites = new HashSet<>(prefs.getStringSet("favorite_sports", new HashSet<>()));
+        if (!favorites.add(pageSlug)) favorites.remove(pageSlug);
+        prefs.edit().putStringSet("favorite_sports", favorites).apply();
+        updateFavoriteToggle();
+        refreshFavoriteLinks();
+    }
+
+    private void updateFavoriteToggle() {
+        favoriteToggle.setVisibility(pageSlug.isEmpty() ? View.GONE : View.VISIBLE);
+        if (!pageSlug.isEmpty()) {
+            boolean selected = getPreferences(MODE_PRIVATE)
+                    .getStringSet("favorite_sports", new HashSet<>()).contains(pageSlug);
+            favoriteToggle.setText(selected ? "★  Favorit" : "☆  Favorit");
+            favoriteToggle.setContentDescription(selected ? "Fjern fra favoritter" : "Føj til favoritter");
+        }
+    }
+
+    private void openTvPage(String slug, String title) {
+        pageSlug = slug;
+        mode = slug.isEmpty() ? "home" : "page";
+        search = "";
+        reload(title);
+    }
+
+    private LinearLayout addTvRow(String heading) {
+        LinearLayout section = new LinearLayout(this);
+        section.setOrientation(LinearLayout.VERTICAL);
+        section.setClipChildren(false);
+        LinearLayout.LayoutParams sectionParams = new LinearLayout.LayoutParams(-1, -2);
+        sectionParams.bottomMargin = dp(28);
+        tvRows.addView(section, sectionParams);
+        if (!heading.isEmpty()) {
+            TextView title = label(heading, 24, Color.WHITE);
+            title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+            title.setPadding(dp(6), 0, 0, dp(12));
+            section.addView(title);
+        }
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.setClipToPadding(false);
+        scroll.setClipChildren(false);
+        section.addView(scroll);
+        LinearLayout items = new LinearLayout(this);
+        items.setPadding(dp(10), dp(10), dp(36), dp(10));
+        items.setClipChildren(false);
+        scroll.addView(items);
+        return items;
+    }
+
+    private void addTvCards(LinearLayout row, int first, int last, boolean canLoadMore) {
+        for (int index = first; index < last; index++) {
+            Video video = videos.get(index);
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setFocusable(true);
+            card.setBackgroundColor(CARD);
+            card.setForeground(focusOutline());
+            card.setContentDescription(video.title);
+            LinearLayout.LayoutParams cardParams = new LinearLayout.LayoutParams(dp(164), dp(158));
+            cardParams.rightMargin = dp(12);
+            row.addView(card, cardParams);
+            ImageView image = new ImageView(this);
+            image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            image.setBackgroundColor(Color.rgb(31, 55, 55));
+            card.addView(image, new LinearLayout.LayoutParams(-1, dp(100)));
+            loadImage(image, video.imageUrl);
+            TextView title = label(video.title, 16, Color.WHITE);
+            title.setTypeface(null, Typeface.BOLD);
+            title.setSingleLine(true);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            title.setMarqueeRepeatLimit(-1);
+            title.setPadding(dp(10), dp(7), dp(10), 0);
+            card.addView(title);
+            String detail = video.category;
+            if (video.isLive()) {
+                long now = System.currentTimeMillis() / 1000;
+                String time = video.startsAt <= now && "live".equals(video.state) ? "LIVE NU"
+                        : video.startsAt > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT,
+                        DateFormat.SHORT, Locale.forLanguageTag("da-DK"))
+                        .format(new Date(video.startsAt * 1000)) : "Live";
+                detail = time + (detail.isEmpty() ? "" : "  ·  " + detail);
+            }
+            TextView meta = label(detail, 12, MUTED);
+            meta.setSingleLine(true);
+            meta.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            meta.setPadding(dp(10), dp(3), dp(10), 0);
+            card.addView(meta);
+            final int videoIndex = index;
+            card.setOnClickListener(v -> openVideo(videoIndex, false));
+            card.setOnFocusChangeListener((view, focused) -> {
+                title.setEllipsize(focused ? android.text.TextUtils.TruncateAt.MARQUEE
+                        : android.text.TextUtils.TruncateAt.END);
+                title.setSelected(focused);
+                if (ValueAnimator.areAnimatorsEnabled()) {
+                    view.animate().scaleX(focused ? 1.035f : 1f)
+                            .scaleY(focused ? 1.035f : 1f).setDuration(150).start();
+                }
+                if (focused && canLoadMore && videoIndex >= videos.size() - 4) loadMore();
+            });
+        }
+    }
+
+    private StateListDrawable focusOutline() {
+        GradientDrawable border = new GradientDrawable();
+        border.setColor(Color.TRANSPARENT);
+        border.setStroke(dp(3), ACCENT);
+        StateListDrawable states = new StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_focused}, border);
+        states.addState(new int[]{}, new ColorDrawable(Color.TRANSPARENT));
+        return states;
+    }
+
+    private FrameLayout artwork(Video video) {
+        FrameLayout frame = new FrameLayout(this);
+        frame.setFocusable(true);
+        frame.setContentDescription(video.title);
+        frame.setForeground(focusOutline());
+        ImageView image = new ImageView(this);
+        image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        image.setBackgroundColor(CARD);
+        frame.addView(image, new FrameLayout.LayoutParams(-1, -1));
+        loadImage(image, video.imageUrl);
+        View shade = new View(this);
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
+                new int[]{Color.argb(240, 3, 16, 16), Color.argb(90, 3, 16, 16), Color.TRANSPARENT}));
+        frame.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+        return frame;
+    }
+
+    private void addHero(int first, int last) {
+        LinearLayout section = new LinearLayout(this);
+        section.setOrientation(LinearLayout.VERTICAL);
+        section.setClipChildren(false);
+        LinearLayout.LayoutParams sectionParams = new LinearLayout.LayoutParams(-1, -2);
+        sectionParams.bottomMargin = dp(28);
+        tvRows.addView(section, sectionParams);
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.setClipChildren(false);
+        section.addView(scroll);
+        LinearLayout strip = new LinearLayout(this);
+        strip.setClipChildren(false);
+        strip.setPadding(dp(10), dp(10), dp(30), dp(10));
+        scroll.addView(strip);
+        TextView dots = label("", 18, ACCENT);
+        dots.setGravity(Gravity.CENTER);
+        if (last - first > 1) section.addView(dots);
+        int available = getResources().getDisplayMetrics().widthPixels - dp(174);
+        for (int index = first; index < last; index++) {
+            Video video = videos.get(index);
+            FrameLayout card = artwork(video);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    last - first == 1 ? available : dp(440), dp(265));
+            params.rightMargin = dp(12);
+            strip.addView(card, params);
+            LinearLayout copy = new LinearLayout(this);
+            copy.setOrientation(LinearLayout.VERTICAL);
+            copy.setPadding(dp(20), dp(20), dp(20), dp(20));
+            card.addView(copy, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+            String timing = video.isLive() && video.startsAt > 0
+                    ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT,
+                    Locale.forLanguageTag("da-DK")).format(new Date(video.startsAt * 1000)) : "";
+            TextView meta = label(video.category + (timing.isEmpty() ? "" : "   |   " + timing), 13, ACCENT);
+            copy.addView(meta);
+            TextView title = label(video.title, 25, Color.WHITE);
+            title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+            title.setSingleLine(true);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            title.setMarqueeRepeatLimit(-1);
+            LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+            titleParams.topMargin = dp(8);
+            copy.addView(title, titleParams);
+            if (!video.description.isEmpty()) {
+                TextView description = label(video.description, 14, Color.WHITE);
+                description.setMaxLines(2);
+                description.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                copy.addView(description);
+            }
+            final int videoIndex = index;
+            final int dotIndex = index - first;
+            card.setOnClickListener(v -> openVideo(videoIndex, false));
+            card.setOnFocusChangeListener((view, focused) -> {
+                title.setEllipsize(focused ? android.text.TextUtils.TruncateAt.MARQUEE
+                        : android.text.TextUtils.TruncateAt.END);
+                title.setSelected(focused);
+                if (focused && last - first > 1) {
+                    StringBuilder marks = new StringBuilder();
+                    for (int i = 0; i < last - first; i++) marks.append(i == dotIndex ? "●  " : "○  ");
+                    dots.setText(marks.toString());
+                }
+                if (ValueAnimator.areAnimatorsEnabled()) view.animate()
+                        .scaleX(focused ? 1.015f : 1f).scaleY(focused ? 1.015f : 1f)
+                        .setDuration(150).start();
+            });
+        }
+        if (last - first > 1) {
+            StringBuilder marks = new StringBuilder("●  ");
+            for (int i = first + 1; i < last; i++) marks.append("○  ");
+            dots.setText(marks.toString());
+        }
+    }
+
+    private void addBanner(int index) {
+        Video video = videos.get(index);
+        FrameLayout banner = artwork(video);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(300));
+        params.leftMargin = dp(10);
+        params.rightMargin = dp(30);
+        params.bottomMargin = dp(34);
+        tvRows.addView(banner, params);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        copy.setGravity(Gravity.CENTER);
+        copy.setPadding(dp(45), dp(12), dp(45), dp(24));
+        banner.addView(copy, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        TextView category = label(video.category, 13, ACCENT);
+        category.setGravity(Gravity.CENTER);
+        copy.addView(category);
+        TextView title = label(video.title, 26, Color.WHITE);
+        title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+        title.setGravity(Gravity.CENTER);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        title.setMarqueeRepeatLimit(-1);
+        copy.addView(title);
+        if (!video.description.isEmpty()) {
+            TextView description = label(video.description, 14, Color.WHITE);
+            description.setGravity(Gravity.CENTER);
+            description.setMaxLines(2);
+            description.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            copy.addView(description);
+        }
+        banner.setOnClickListener(v -> openVideo(index, false));
+        banner.setOnFocusChangeListener((view, focused) -> {
+            title.setEllipsize(focused ? android.text.TextUtils.TruncateAt.MARQUEE
+                    : android.text.TextUtils.TruncateAt.END);
+            title.setSelected(focused);
+            if (ValueAnimator.areAnimatorsEnabled()) view.animate()
+                    .scaleX(focused ? 1.015f : 1f).scaleY(focused ? 1.015f : 1f)
+                    .setDuration(150).start();
+        });
     }
 
     private void checkForUpdates(boolean manual) {
@@ -453,20 +857,25 @@ public final class MainActivity extends Activity {
         search = query.trim();
         if (search.isEmpty()) return;
         mode = "search";
+        if (isTv) pageSlug = "";
         focusResults = true;
         reload("Søgning: “" + search + "”");
         if (searchInput != null) searchInput.clearFocus();
     }
 
     private void chooseCategory() {
-        String[] names = new String[categories.size()];
-        for (int i = 0; i < categories.size(); i++) names[i] = categories.get(i).name;
+        List<CatalogClient.Category> choices = isTv ? CatalogClient.siteSports() : categories;
+        String[] names = new String[choices.size()];
+        for (int i = 0; i < choices.size(); i++) names[i] = choices.get(i).name;
         new AlertDialog.Builder(this).setTitle("Sportsgren")
                 .setItems(names, (dialog, index) -> {
-                    CatalogClient.Category category = categories.get(index);
-                    categoryId = category.id;
-                    categoryButton.setText(category.name + " ▾");
-                    reload(category.name);
+                    CatalogClient.Category category = choices.get(index);
+                    if (isTv) openTvPage(category.id, category.name);
+                    else {
+                        categoryId = category.id;
+                        categoryButton.setText(category.name + " ▾");
+                        reload(category.name);
+                    }
                 }).show();
     }
 
@@ -484,17 +893,67 @@ public final class MainActivity extends Activity {
     private void reload(String message) {
         if (!"search".equals(mode)) focusResults = false;
         sectionTitle = message;
-        liveButton.setActivated("livestream".equals(mode));
-        archiveButton.setActivated("video-on-demand".equals(mode));
-        searchButton.setActivated("search".equals(mode));
+        if (!isTv) {
+            liveButton.setActivated("livestream".equals(mode));
+            archiveButton.setActivated("video-on-demand".equals(mode));
+            searchButton.setActivated("search".equals(mode));
+        }
         generation++;
         page = 0;
         hasMore = true;
         loading = false;
         videos.clear();
-        adapter.notifyDataSetChanged();
+        if (isTv) {
+            tvRows.removeAllViews();
+            tvList = null;
+            tvScroll.scrollTo(0, 0);
+            status.setVisibility(View.VISIBLE);
+            updateFavoriteToggle();
+        } else {
+            adapter.notifyDataSetChanged();
+        }
         status.setText(sectionTitle + " · henter …");
-        loadMore();
+        if (isTv && ("home".equals(mode) || "page".equals(mode))) loadTvPage();
+        else loadMore();
+    }
+
+    private void loadTvPage() {
+        loading = true;
+        final int expectedGeneration = generation;
+        final String requestedSlug = pageSlug;
+        executor.execute(() -> {
+            try {
+                List<CatalogClient.Block> blocks = CatalogClient.pageBlocks(requestedSlug);
+                for (CatalogClient.Block block : blocks) {
+                    if (generation != expectedGeneration) return;
+                    try {
+                        List<Video> items = CatalogClient.blockVideos(block);
+                        if (items.isEmpty()) continue;
+                        main.post(() -> {
+                            if (generation != expectedGeneration) return;
+                            int first = videos.size();
+                            videos.addAll(items);
+                            if ("banner".equals(block.kind)) addBanner(first);
+                            else if ("hero".equals(block.kind)) addHero(first, videos.size());
+                            else addTvCards(addTvRow(block.title), first, videos.size(), false);
+                            status.setVisibility(requestedSlug.isEmpty() ? View.GONE : View.VISIBLE);
+                            status.setText(sectionTitle);
+                        });
+                    } catch (Exception ignored) { /* A failed site block must not hide later rows. */ }
+                }
+                main.post(() -> {
+                    if (generation != expectedGeneration) return;
+                    loading = false;
+                    if (videos.isEmpty()) status.setText("Ingen videoer fundet");
+                });
+            } catch (Exception error) {
+                main.post(() -> {
+                    if (generation != expectedGeneration) return;
+                    loading = false;
+                    status.setText("Kunne ikke hente siden: " + error.getMessage());
+                });
+            }
+        });
     }
 
     private void loadMore() {
@@ -519,8 +978,14 @@ public final class MainActivity extends Activity {
                 }
                 main.post(() -> {
                     if (generation != expectedGeneration) return;
+                    int first = videos.size();
                     videos.addAll(result.videos);
-                    adapter.notifyDataSetChanged();
+                    if (isTv) {
+                        if (tvList == null && !videos.isEmpty()) tvList = addTvRow(sectionTitle);
+                        if (tvList != null) addTvCards(tvList, first, videos.size(), result.hasMore);
+                    } else {
+                        adapter.notifyDataSetChanged();
+                    }
                     if (focusResults && !videos.isEmpty()) {
                         focusResults = false;
                         focusFirstResult();
@@ -542,8 +1007,12 @@ public final class MainActivity extends Activity {
     }
 
     private void focusFirstResult() {
-        grid.requestFocusFromTouch();
-        grid.setSelection(0);
+        if (isTv) {
+            if (tvList != null && tvList.getChildCount() > 0) tvList.getChildAt(0).requestFocus();
+        } else {
+            grid.requestFocusFromTouch();
+            grid.setSelection(0);
+        }
     }
 
     private final class VideoAdapter extends BaseAdapter {
@@ -648,10 +1117,10 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
-        if (isTv && grid.hasFocus()) {
-            grid.smoothScrollToPosition(0);
-            ("search".equals(mode) ? searchButton :
-                    "video-on-demand".equals(mode) ? archiveButton : liveButton).requestFocus();
+        if (isTv && tvRows.hasFocus()) {
+            tvScroll.smoothScrollTo(0, 0);
+            ("search".equals(mode) ? searchNav :
+                    "page".equals(mode) ? categoryNav : homeNav).requestFocus();
             return;
         }
         super.onBackPressed();

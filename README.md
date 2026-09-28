@@ -1,8 +1,8 @@
 # DirekteSport TV
 
-Android-app til Nvidia Shield og telefon. Den viser DirekteSports katalog og åbner videoer i fuld skærm. TV-grænsefladen styres med fjernbetjeningen; telefonen har et layout til touch.
+Android TV-app, der viser DirekteSports katalog og åbner videoer i fuld skærm. Grænsefladen styres med fjernbetjeningen. Appen kan også bruges på Android-telefoner.
 
-## Hent APK på Shield eller telefon
+## Hent APK til Android TV
 
 Åbn [downloadsiden](https://skttl.github.io/DirekteSport-android-tv/) i browseren, og tryk **Download nyeste APK**. Åbn den hentede fil, og tillad installation fra browseren eller filhåndteringen. Appen vises som **DirekteSport TV** i telefonens appskuffe og på Android TV-startskærmen.
 
@@ -10,10 +10,9 @@ Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** fo
 
 ## Prøv første milepæl
 
-1. Åbn **Log ind / konto**, og log ind på JFM's egen side. Appen gemmer websessionen på Shield.
-2. Vælg **Live** eller **Arkiv**. Vælg en sportsgren, eller søg efter et videonavn.
-3. Åbn en video markeret **GRATIS** og derefter en markeret **ABONNEMENT**.
-4. På TV viser op/ned afspillerens kontrolpanel med tidslinje, pause, spoling, hastighed og **Andre videoer**. Venstre/højre spoler 10 sekunder, når panelet er skjult. OK styrer afspilningen, og Tilbage lukker først panel eller videoliste og går derefter til kataloget. På telefonen åbner knappen **Videoer** videolisten, og den indbyggede videoplayer har touchkontroller. Live kan kun spoles, hvis streamen tillader det. På telefon og tablet kan du trykke på Cast-knappen i kataloget eller afspilleren, vælge en Chromecast og styre pause/afspilning i afspilleren. Når du afbryder forbindelsen, fortsætter videoen på enheden. Telefon og Chromecast skal være på samme netværk, og Google Play-tjenester skal være tilgængelige. Appen starter ikke næste video automatisk.
+1. Vælg **Live** eller **Arkiv**. Vælg en sportsgren, eller søg efter et videonavn.
+2. Åbn en video markeret **GRATIS** og derefter en markeret **ABONNEMENT**. Abonnementsvideoen åbner JFM-login, hvis du ikke er logget ind, og starter først efter bekræftet login. Appen gemmer websessionen på enheden.
+3. På TV viser op/ned afspillerens kontrolpanel med tidslinje, pause, spoling, hastighed og **Andre videoer**. Venstre/højre spoler 10 sekunder, når panelet er skjult. OK styrer afspilningen, og Tilbage lukker først panel eller videoliste og går derefter til kataloget. På telefonen åbner knappen **Videoer** videolisten, og den indbyggede videoplayer har touchkontroller. Live kan kun spoles, hvis streamen tillader det. På telefon og tablet kan du trykke på Cast-knappen i kataloget eller afspilleren, vælge en Chromecast og styre pause/afspilning i afspilleren. Når du afbryder forbindelsen, fortsætter videoen på enheden. Telefon og Chromecast skal være på samme netværk, og Google Play-tjenester skal være tilgængelige. Appen starter ikke næste video automatisk.
 
 Appen henter videoens HLS-adresse fra Flowplayers konfiguration ved hjælp af video-id og spiller m3u8-strømmen direkte med Media3. Kommende livestreams kan først afspilles, når strømmen er startet. Chromecast bruger Googles standardmodtager til at hente HLS-adressen direkte. Streams, der kræver telefonens login-cookie eller særlige HTTP-headere, kan derfor fejle på Chromecast; især abonnementsvideoer kræver test med en rigtig enhed og konto.
 
@@ -27,4 +26,4 @@ Kataloget hentes fra de JSON-endepunkter, som [DirekteSports hjemmeside](https:/
 
 ## Status
 
-Katalog-endepunkterne og HLS-konfigurationen er kontrolleret uden login. Den direkte afspilning og betalt adgang skal afprøves på Shield med den eksisterende JFM-konto.
+Katalog-endepunkterne og HLS-konfigurationen er kontrolleret uden login. Den direkte afspilning og betalt adgang skal afprøves på en Android TV-enhed med en JFM-konto.

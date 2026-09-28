@@ -4,6 +4,7 @@ import html
 import json
 import os
 import re
+import shutil
 import time
 import urllib.request
 from pathlib import Path
@@ -85,3 +86,5 @@ Path("site-build/index.html").write_text(page, encoding="utf-8")
 Path("site-build/history.json").write_text(
     json.dumps(entries, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
 )
+shutil.copytree("pages/assets", "site-build/assets", dirs_exist_ok=True)
+shutil.copyfile("pages/style.css", "site-build/style.css")

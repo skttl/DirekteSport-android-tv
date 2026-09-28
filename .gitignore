@@ -2,6 +2,7 @@
 .local-tools/
 .idea/
 **/build/
+site-build/
 local.properties
 *.iml
 

@@ -45,6 +45,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class PlayerActivity extends Activity {
+    private static final int VIDEO_LOGIN_REQUEST = 1;
     static ArrayList<Video> queue = new ArrayList<>();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -75,6 +76,8 @@ public final class PlayerActivity extends Activity {
     private Button castPlaybackButton;
     private long resumePosition;
     private boolean castFailed;
+    private boolean checkingVideoAccess;
+    private int pendingSelection = -1;
     private final SessionManagerListener<CastSession> castListener = new SessionManagerListener<CastSession>() {
         @Override public void onSessionStarting(CastSession session) {}
         @Override public void onSessionStarted(CastSession session, String id) { castCurrentVideo(); }
@@ -482,9 +485,7 @@ public final class PlayerActivity extends Activity {
                     new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
                     new int[]{Color.rgb(92, 255, 154), Color.rgb(23, 63, 63)}));
             item.setOnClickListener(v -> {
-                selected = index;
-                hideChooser();
-                play(video.id);
+                selectVideo(index, false);
             });
             list.addView(item, new LinearLayout.LayoutParams(-1, dp(72)));
             if (i == selected) main.post(item::requestFocus);
@@ -493,6 +494,56 @@ public final class PlayerActivity extends Activity {
                 compact ? -1 : dp(isTv ? 480 : 620), -1, Gravity.START);
         root.addView(chooser, params);
         chooser.bringToFront();
+    }
+
+    private void selectVideo(int index, boolean afterLogin) {
+        if (checkingVideoAccess || index < 0 || index >= queue.size()) return;
+        Video video = queue.get(index);
+        if (!video.paid) {
+            playSelected(index);
+            return;
+        }
+        checkingVideoAccess = true;
+        executor.execute(() -> {
+            try {
+                boolean loggedIn = AuthClient.isLoggedIn();
+                main.post(() -> {
+                    checkingVideoAccess = false;
+                    if (isFinishing() || isDestroyed()) return;
+                    if (loggedIn) playSelected(index);
+                    else if (afterLogin) showAccessError("Login kunne ikke bekræftes. Prøv igen.");
+                    else {
+                        pendingSelection = index;
+                        startActivityForResult(new android.content.Intent(this, LoginActivity.class), VIDEO_LOGIN_REQUEST);
+                    }
+                });
+            } catch (Exception error) {
+                main.post(() -> {
+                    checkingVideoAccess = false;
+                    if (!isFinishing() && !isDestroyed())
+                        showAccessError("Kunne ikke kontrollere login. Kontrollér forbindelsen og prøv igen.");
+                });
+            }
+        });
+    }
+
+    private void playSelected(int index) {
+        selected = index;
+        hideChooser();
+        play(queue.get(index).id);
+    }
+
+    private void showAccessError(String message) {
+        new AlertDialog.Builder(this).setMessage(message).setPositiveButton("OK", null).show();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == VIDEO_LOGIN_REQUEST) {
+            int index = pendingSelection;
+            pendingSelection = -1;
+            if (resultCode == RESULT_OK && index >= 0) selectVideo(index, true);
+        }
     }
 
     private void hideChooser() {

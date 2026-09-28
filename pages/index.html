@@ -3,32 +3,122 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DirekteSport TV – APK-downloads</title>
-  <style>
-    body { margin: 0; min-height: 100vh; background: #10151e; color: #fff; font: 18px system-ui, sans-serif; }
-    main { max-width: 42rem; margin: auto; padding: 2rem; }
-    h1 { color: #f4c545; font-size: 2.5rem; }
-    a { color: #f4c545; }
-    a.download { display: inline-block; margin: 1rem 0; padding: 1rem 1.5rem; border-radius: .5rem; background: #f4c545; color: #10151e; font-weight: 700; text-decoration: none; }
-    p { line-height: 1.5; }
-    ol { padding-left: 1.5rem; }
-    li { margin: 0 0 1rem; overflow-wrap: anywhere; }
-    li span { display: block; color: #b7c0cf; font-size: .85rem; }
-    li p { margin: .5rem 0; white-space: pre-line; }
-    li a.release { font-size: .85rem; }
-  </style>
+  <meta name="theme-color" content="#0a1a1a">
+  <meta name="description" content="DirekteSport TV er en uofficiel app til Android TV med live sport og arkivvideoer. Se appen, og hent den nyeste APK.">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="stylesheet" href="style.css">
+  <title>DirekteSport TV | Sport på dit Android TV</title>
 </head>
 <body>
-  <main>
-    <h1>DirekteSport TV</h1>
-    <p>APK til Nvidia Shield. Nye versioner bygges ved hvert commit på main.</p>
-    <a class="download" id="download" href="__LATEST_APK__">Download nyeste APK</a>
-    <p>Åbn den hentede APK på Shield, og tillad installation fra browseren eller filhåndteringen.</p>
-    <h2>Seneste 10 versioner</h2>
-    <ol id="apk-list">
+  <header class="site-header">
+    <div class="shell">
+      <a class="brand" href="#top" aria-label="DirekteSport TV, til toppen">
+        <img src="assets/direktesport-logo.png" width="588" height="55" alt="DirekteSport">
+        <span>TV</span>
+      </a>
+      <nav aria-label="Sidenavigation">
+        <a href="#funktioner">Funktioner</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#installation">Installation</a>
+        <a href="#versioner">Hent appen</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div>
+          <div class="eyebrow">Til Android TV</div>
+          <h1>Sporten på <span>skærmen.</span></h1>
+          <p class="hero-copy">Se DirekteSports livekampe og arkivvideoer på dit TV. Find en kamp med fjernbetjeningen, læn dig tilbage, og styr afspilningen fra sofaen.</p>
+          <div class="actions">
+            <a class="button download" href="__LATEST_APK__">Download nyeste APK <span aria-hidden="true">↗</span></a>
+            <a class="button secondary" href="#installation">Sådan installerer du</a>
+          </div>
+          <p class="download-meta" id="latest-build">Til Android TV · Android 8 eller nyere</p>
+        </div>
+        <div class="hero-visual">
+          <div class="tv-frame"><img src="assets/katalog.png" width="1920" height="1080" alt="Appens TV-katalog med livekampe, sportsgrene og store videokort"></div>
+          <div class="tv-stand" aria-hidden="true"></div>
+          <div class="screen-note"><span>Visning fra Android TV-emulator</span><b>Live · Arkiv · Søg</b></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="funktioner">
+      <div class="shell">
+        <div class="section-heading">
+          <div class="eyebrow">Lavet til fjernbetjeningen</div>
+          <h2>Find kampen. Se med.</h2>
+          <p>Store kort og et tydeligt fokus viser, hvor du er. Du kan nå både katalog og afspiller med TV-fjernbetjeningen.</p>
+        </div>
+        <div class="feature-grid">
+          <div class="feature"><strong>Live og arkiv</strong><h3>Vælg det, du vil se</h3><p>Gå mellem kommende livekampe og arkivvideoer. Filtrér efter sportsgren, eller søg på navn.</p></div>
+          <div class="feature"><strong>Afspilning</strong><h3>Styr den fra sofaen</h3><p>Tryk ned for tidslinje, pause, spoling, hastighed og en liste med andre videoer.</p></div>
+          <div class="feature"><strong>Din konto</strong><h3>Log ind ved behov</h3><p>Abonnementsvideoer åbner JFM-login, hvis du ikke allerede er logget ind.</p></div>
+          <div class="feature"><strong>Opdateringer</strong><h3>Få nye versioner</h3><p>Appen tjekker efter opdateringer ved start og kan hente den nyeste APK direkte.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="screenshots">
+      <div class="shell">
+        <div class="section-heading">
+          <div class="eyebrow">Inde i appen</div>
+          <h2>Se hvordan det virker</h2>
+          <p>Screenshots fra appen i en Android TV-emulator.</p>
+        </div>
+        <div class="gallery">
+          <figure>
+            <div class="shot"><img loading="lazy" src="assets/afspiller.png" width="1920" height="1080" alt="Video med åbent kontrolpanel, tidslinje, pause, spoling, hastighed og Andre videoer"></div>
+            <figcaption><span>01</span><div><strong>Afspilning</strong><p>Tryk ned på fjernbetjeningen for at åbne kontrollerne.</p></div></figcaption>
+          </figure>
+          <figure>
+            <div class="shot"><img loading="lazy" src="assets/andre-videoer.png" width="1920" height="1080" alt="Liste med andre videoer lagt oven på afspilleren"></div>
+            <figcaption><span>02</span><div><strong>Andre videoer</strong><p>Skift til en anden kamp uden at gå tilbage til kataloget.</p></div></figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section install" id="installation">
+      <div class="shell install-grid">
+        <div class="section-heading">
+          <div class="eyebrow">Kom i gang</div>
+          <h2>Fra APK til TV-skærm</h2>
+          <p>Appen installeres som en APK. Den findes ikke i Google Play.</p>
+          <a class="button download" href="__LATEST_APK__">Download nyeste APK <span aria-hidden="true">↗</span></a>
+        </div>
+        <ol class="steps">
+          <li><span>01</span><div><h3>Hent APK-filen</h3><p>Download den på dit TV, eller overfør den fra en computer eller telefon.</p></div></li>
+          <li><span>02</span><div><h3>Åbn filen</h3><p>Åbn APK'en i browseren eller en filhåndtering. Tillad installation fra den kilde, hvis Android spørger.</p></div></li>
+          <li><span>03</span><div><h3>Åbn DirekteSport TV</h3><p>Appen ligger i din appliste. Den tjekker selv, om der findes en nyere version.</p></div></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section release-section" id="versioner">
+      <div class="shell">
+        <div class="section-heading">
+          <div class="eyebrow">Downloads</div>
+          <h2>Seneste versioner</h2>
+          <p>Den øverste version er den nyeste. Ældre builds ligger fortsat på GitHub.</p>
+        </div>
+        <ol class="releases" id="apk-list">
 __APK_LIST__
-    </ol>
+        </ol>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <div class="shell">
+      <p>DirekteSport TV er en uofficiel app. Login og abonnement håndteres af DirekteSport og JFM. Rettigheder og adgang til den enkelte video styres af tjenesten.</p>
+      <a href="https://github.com/skttl/DirekteSport-android-tv">Se kildekoden på GitHub</a>
+    </div>
+  </footer>
+
   <script>
     const expectedRepo = 'https://github.com/skttl/DirekteSport-android-tv/releases/download/';
     function valid(entry) {
@@ -42,7 +132,9 @@ __APK_LIST__
       .then(response => response.ok ? response.json() : [])
       .then(entries => {
         if (!Array.isArray(entries) || !entries.length || !entries.every(valid)) return;
-        document.getElementById('download').href = entries[0].url;
+        document.querySelectorAll('.download').forEach(link => { link.href = entries[0].url; });
+        document.getElementById('latest-build').textContent =
+          'Nyeste: ' + entries[0].build.replace('build-', 'build ') + ' · ' + entries[0].date + ' · Android 8 eller nyere';
         const list = document.getElementById('apk-list');
         list.replaceChildren();
         for (const entry of entries) {
@@ -67,4 +159,3 @@ __APK_LIST__
   </script>
 </body>
 </html>
-

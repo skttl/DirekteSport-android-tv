@@ -59,6 +59,7 @@ public final class MainActivity extends Activity {
     private static final int ACCENT = Color.rgb(92, 255, 154);
     private static final int MUTED = Color.rgb(181, 192, 189);
     private static final int UNKNOWN_SOURCES_REQUEST = 1;
+    private static final int VIDEO_LOGIN_REQUEST = 2;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
     private final ExecutorService images = Executors.newFixedThreadPool(3);
@@ -90,6 +91,8 @@ public final class MainActivity extends Activity {
     private boolean downloadingUpdate;
     private AlertDialog downloadDialog;
     private File pendingApk;
+    private int pendingVideoIndex = -1;
+    private boolean checkingVideoAccess;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -234,13 +237,7 @@ public final class MainActivity extends Activity {
         if (isTv) grid.setFocusableInTouchMode(true);
         adapter = new VideoAdapter();
         grid.setAdapter(adapter);
-        grid.setOnItemClickListener((parent, view, position, id) -> {
-            PlayerActivity.queue = new ArrayList<>(videos);
-            Intent intent = new Intent(this, PlayerActivity.class);
-            intent.putExtra("index", position);
-            intent.putExtra("id", videos.get(position).id);
-            startActivity(intent);
-        });
+        grid.setOnItemClickListener((parent, view, position, id) -> openVideo(position, false));
         grid.setOnScrollListener(new AbsListView.OnScrollListener() {
             @Override public void onScrollStateChanged(AbsListView view, int state) {}
             @Override public void onScroll(AbsListView view, int first, int count, int total) {
@@ -359,10 +356,56 @@ public final class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == VIDEO_LOGIN_REQUEST) {
+            int index = pendingVideoIndex;
+            pendingVideoIndex = -1;
+            if (resultCode == RESULT_OK && index >= 0) openVideo(index, true);
+            return;
+        }
         if (requestCode == UNKNOWN_SOURCES_REQUEST && pendingApk != null
                 && getPackageManager().canRequestPackageInstalls()) {
             installUpdate(pendingApk);
         }
+    }
+
+    private void openVideo(int index, boolean afterLogin) {
+        if (index < 0 || index >= videos.size() || checkingVideoAccess) return;
+        Video video = videos.get(index);
+        if (!video.paid) {
+            startPlayer(index);
+            return;
+        }
+        checkingVideoAccess = true;
+        executor.execute(() -> {
+            try {
+                boolean loggedIn = AuthClient.isLoggedIn();
+                main.post(() -> {
+                    checkingVideoAccess = false;
+                    if (isFinishing() || isDestroyed() || index >= videos.size()
+                            || videos.get(index) != video) return;
+                    if (loggedIn) startPlayer(index);
+                    else if (afterLogin) showUpdateError("Login kunne ikke bekræftes", "Prøv at logge ind igen.");
+                    else {
+                        pendingVideoIndex = index;
+                        startActivityForResult(new Intent(this, LoginActivity.class), VIDEO_LOGIN_REQUEST);
+                    }
+                });
+            } catch (Exception error) {
+                main.post(() -> {
+                    checkingVideoAccess = false;
+                    if (!isFinishing() && !isDestroyed())
+                        showUpdateError("Kunne ikke kontrollere login", "Kontrollér forbindelsen og prøv igen.");
+                });
+            }
+        });
+    }
+
+    private void startPlayer(int index) {
+        PlayerActivity.queue = new ArrayList<>(videos);
+        Intent intent = new Intent(this, PlayerActivity.class);
+        intent.putExtra("index", index);
+        intent.putExtra("id", videos.get(index).id);
+        startActivity(intent);
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {

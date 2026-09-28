@@ -109,6 +109,8 @@ public final class MainActivity extends Activity {
     private AlertDialog downloadDialog;
     private File pendingApk;
     private int pendingVideoIndex = -1;
+    private String pendingVideoId;
+    private boolean pendingVideoPaid;
     private boolean checkingVideoAccess;
 
     @Override public void onCreate(Bundle state) {
@@ -120,6 +122,11 @@ public final class MainActivity extends Activity {
         if (!isTv) loadCategories();
         if (isTv) mode = "home";
         reload(isTv ? "Forside" : "Live og kommende udsendelser");
+        if (isTv) {
+            HomeRecommendations.schedule(this);
+            HomeRecommendations.refresh(this);
+            openRecommendedVideo(getIntent());
+        }
         checkForUpdates(false);
     }
 
@@ -414,6 +421,7 @@ public final class MainActivity extends Activity {
         prefs.edit().putStringSet("favorite_sports", favorites).apply();
         updateFavoriteToggle();
         refreshFavoriteLinks();
+        HomeRecommendations.refresh(this);
     }
 
     private void updateFavoriteToggle() {
@@ -762,8 +770,11 @@ public final class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == VIDEO_LOGIN_REQUEST) {
             int index = pendingVideoIndex;
+            String id = pendingVideoId;
+            boolean paid = pendingVideoPaid;
             pendingVideoIndex = -1;
-            if (resultCode == RESULT_OK && index >= 0) openVideo(index, true);
+            pendingVideoId = null;
+            if (resultCode == RESULT_OK && id != null) openVideo(id, paid, index, true);
             return;
         }
         if (requestCode == UNKNOWN_SOURCES_REQUEST && pendingApk != null
@@ -773,10 +784,24 @@ public final class MainActivity extends Activity {
     }
 
     private void openVideo(int index, boolean afterLogin) {
-        if (index < 0 || index >= videos.size() || checkingVideoAccess) return;
+        if (index < 0 || index >= videos.size()) return;
         Video video = videos.get(index);
-        if (!video.paid) {
-            startPlayer(index);
+        openVideo(video.id, video.paid, index, afterLogin);
+    }
+
+    private void openRecommendedVideo(Intent intent) {
+        String id = intent.getStringExtra("recommended_video_id");
+        if (id != null && !id.isEmpty()) {
+            intent.removeExtra("recommended_video_id");
+            openVideo(id, intent.getBooleanExtra("recommended_video_paid", false), -1, false);
+        }
+    }
+
+    private void openVideo(String id, boolean paid, int index, boolean afterLogin) {
+        if (checkingVideoAccess || id == null || id.isEmpty()) return;
+        if (index >= 0 && (index >= videos.size() || !id.equals(videos.get(index).id))) return;
+        if (!paid) {
+            startPlayer(index, id);
             return;
         }
         checkingVideoAccess = true;
@@ -785,12 +810,14 @@ public final class MainActivity extends Activity {
                 boolean loggedIn = AuthClient.isLoggedIn();
                 main.post(() -> {
                     checkingVideoAccess = false;
-                    if (isFinishing() || isDestroyed() || index >= videos.size()
-                            || videos.get(index) != video) return;
-                    if (loggedIn) startPlayer(index);
+                    if (isFinishing() || isDestroyed() || (index >= 0 &&
+                            (index >= videos.size() || !id.equals(videos.get(index).id)))) return;
+                    if (loggedIn) startPlayer(index, id);
                     else if (afterLogin) showUpdateError("Login kunne ikke bekræftes", "Prøv at logge ind igen.");
                     else {
                         pendingVideoIndex = index;
+                        pendingVideoId = id;
+                        pendingVideoPaid = paid;
                         startActivityForResult(new Intent(this, LoginActivity.class), VIDEO_LOGIN_REQUEST);
                     }
                 });
@@ -804,11 +831,11 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void startPlayer(int index) {
-        PlayerActivity.queue = new ArrayList<>(videos);
+    private void startPlayer(int index, String id) {
+        PlayerActivity.queue = index >= 0 ? new ArrayList<>(videos) : new ArrayList<>();
         Intent intent = new Intent(this, PlayerActivity.class);
         intent.putExtra("index", index);
-        intent.putExtra("id", videos.get(index).id);
+        intent.putExtra("id", id);
         startActivity(intent);
     }
 

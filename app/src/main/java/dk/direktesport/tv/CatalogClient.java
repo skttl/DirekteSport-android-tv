@@ -51,13 +51,21 @@ final class CatalogClient {
     }
 
     static Page videos(String type, String categoryId, String search, int page) throws IOException, JSONException {
+        return videos(type, categoryId, search, page, 30);
+    }
+
+    static Page liveToday(String categoryId, int page) throws IOException, JSONException {
+        return videos("livestream", categoryId, "", page, 0);
+    }
+
+    private static Page videos(String type, String categoryId, String search, int page, int daysForward) throws IOException, JSONException {
         String path = "livestream".equals(type) ? "livestreams" : "videos-on-demand";
         StringBuilder url = new StringBuilder(BASE).append("/flowplayer/api/").append(path)
                 .append("?workspaceId=").append(WORKSPACE)
                 .append("&page=").append(page)
                 .append("&pageSize=").append(PAGE_SIZE);
         if ("livestream".equals(type) && search.isEmpty()) {
-            url.append("&showLive=1&daysForward=30");
+            url.append("&showLive=1&daysForward=").append(daysForward);
         }
         if (!categoryId.isEmpty()) {
             url.append("&categoryId=").append(encode(categoryId));

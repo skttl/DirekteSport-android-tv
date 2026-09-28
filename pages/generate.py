@@ -25,7 +25,7 @@ def api_pages(path):
                 "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {token}",
                 "Cache-Control": "no-cache",
-                "User-Agent": "DirekteSport-TV-pages-builder",
+                "User-Agent": "DS-Play-pages-builder",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
@@ -46,7 +46,7 @@ for release in releases[:10]:
     assets_query = urlencode({"per_page": 100, "nonce": nonce})
     for asset in api_pages(f"releases/{release['id']}/assets?{assets_query}"):
         name = asset["name"]
-        if re.fullmatch(r"DirekteSport-TV-[0-9a-f]{12}\.apk", name):
+        if re.fullmatch(r"(?:DS-Play|DirekteSport-TV)-[0-9a-f]{12}\.apk", name):
             entries.append(
                 {
                     "name": name,
@@ -86,5 +86,7 @@ Path("site-build/index.html").write_text(page, encoding="utf-8")
 Path("site-build/history.json").write_text(
     json.dumps(entries, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
 )
-shutil.copytree("pages/assets", "site-build/assets", dirs_exist_ok=True)
+Path("site-build/assets").mkdir(exist_ok=True)
+for asset in ("ds-play.svg", "katalog.png", "afspiller.png", "andre-videoer.png"):
+    shutil.copyfile(Path("pages/assets") / asset, Path("site-build/assets") / asset)
 shutil.copyfile("pages/style.css", "site-build/style.css")

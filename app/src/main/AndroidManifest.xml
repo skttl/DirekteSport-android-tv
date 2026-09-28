@@ -7,9 +7,9 @@
 
     <application
         android:allowBackup="false"
-        android:banner="@drawable/tv_banner"
-        android:icon="@drawable/tv_icon"
-        android:label="DirekteSport TV"
+        android:banner="@drawable/ds_play_banner"
+        android:icon="@drawable/ds_play_icon"
+        android:label="DS Play"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
         <meta-data
@@ -27,9 +27,9 @@
         <activity android:name=".PlayerActivity" android:exported="false" />
         <activity android:name=".LoginActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true"
-            android:banner="@drawable/tv_banner"
-            android:icon="@drawable/tv_icon"
-            android:label="DirekteSport TV">
+            android:banner="@drawable/ds_play_banner"
+            android:icon="@drawable/ds_play_icon"
+            android:label="DS Play">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

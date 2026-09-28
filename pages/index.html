@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a1a1a">
-  <meta name="description" content="DirekteSport TV er en uofficiel app til Android TV med live sport og arkivvideoer. Se appen, og hent den nyeste APK.">
-  <link rel="icon" type="image/png" href="assets/icon.png">
+  <meta name="description" content="DS Play er en uofficiel app til Android TV med live sport og arkivvideoer. Se appen, og hent den nyeste APK.">
+  <link rel="icon" type="image/svg+xml" href="assets/ds-play.svg">
   <link rel="stylesheet" href="style.css">
-  <title>DirekteSport TV | Sport på dit Android TV</title>
+  <title>DS Play | Sport på dit Android TV</title>
 </head>
 <body>
   <header class="site-header">
     <div class="shell">
-      <a class="brand" href="#top" aria-label="DirekteSport TV, til toppen">
-        <img src="assets/direktesport-logo.png" width="588" height="55" alt="DirekteSport">
-        <span>TV</span>
+      <a class="brand" href="#top" aria-label="DS Play, til toppen">
+        <img src="assets/ds-play.svg" width="48" height="48" alt="">
+        <span>DS <em>PLAY</em></span>
       </a>
       <nav aria-label="Sidenavigation">
         <a href="#funktioner">Funktioner</a>
@@ -93,7 +93,7 @@
         <ol class="steps">
           <li><span>01</span><div><h3>Hent APK-filen</h3><p>Download den på dit TV, eller overfør den fra en computer eller telefon.</p></div></li>
           <li><span>02</span><div><h3>Åbn filen</h3><p>Åbn APK'en i browseren eller en filhåndtering. Tillad installation fra den kilde, hvis Android spørger.</p></div></li>
-          <li><span>03</span><div><h3>Åbn DirekteSport TV</h3><p>Appen ligger i din appliste. Den tjekker selv, om der findes en nyere version.</p></div></li>
+          <li><span>03</span><div><h3>Åbn DS Play</h3><p>Appen ligger i din appliste. Den tjekker selv, om der findes en nyere version.</p></div></li>
         </ol>
       </div>
     </section>
@@ -114,7 +114,7 @@ __APK_LIST__
 
   <footer>
     <div class="shell">
-      <p>DirekteSport TV er en uofficiel app. Login og abonnement håndteres af DirekteSport og JFM. Rettigheder og adgang til den enkelte video styres af tjenesten.</p>
+      <p>DS Play er en uofficiel app. Login og abonnement håndteres af DirekteSport og JFM. Rettigheder og adgang til den enkelte video styres af tjenesten.</p>
       <a href="https://github.com/skttl/DirekteSport-android-tv">Se kildekoden på GitHub</a>
     </div>
   </footer>
@@ -122,7 +122,7 @@ __APK_LIST__
   <script>
     const expectedRepo = 'https://github.com/skttl/DirekteSport-android-tv/releases/download/';
     function valid(entry) {
-      return entry && /^DirekteSport-TV-[0-9a-f]{12}\.apk$/.test(entry.name)
+      return entry && /^(?:DS-Play|DirekteSport-TV)-[0-9a-f]{12}\.apk$/.test(entry.name)
         && typeof entry.url === 'string' && entry.url.startsWith(expectedRepo)
         && typeof entry.notes === 'string'
         && typeof entry.release_url === 'string'

@@ -138,7 +138,7 @@ public final class MainActivity extends Activity {
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         root.addView(header, new LinearLayout.LayoutParams(-1, dp(compact ? 45 : 60)));
-        TextView title = label("DIREKTE SPORT", compact ? 24 : 32, ACCENT);
+        TextView title = label("DS PLAY", compact ? 24 : 32, ACCENT);
         title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         if (!isTv) {
@@ -329,7 +329,7 @@ public final class MainActivity extends Activity {
             pendingApk = apk;
             new AlertDialog.Builder(this)
                     .setTitle("Tillad installation")
-                    .setMessage("Android skal have tilladelse til at installere apps fra DirekteSport TV. Giv tilladelsen i indstillinger, og gå tilbage hertil.")
+                    .setMessage("Android skal have tilladelse til at installere apps fra DS Play. Giv tilladelsen i indstillinger, og gå tilbage hertil.")
                     .setPositiveButton("Åbn indstillinger", (dialog, which) -> {
                         Intent settings = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                                 Uri.parse("package:" + getPackageName()));

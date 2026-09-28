@@ -1,12 +1,12 @@
-# DirekteSport TV
+# DS Play
 
-Android TV-app, der viser DirekteSports katalog og åbner videoer i fuld skærm. Grænsefladen styres med fjernbetjeningen. Appen kan også bruges på Android-telefoner.
+DS Play er en uofficiel Android TV-app, der viser DirekteSports katalog og åbner videoer i fuld skærm. Grænsefladen styres med fjernbetjeningen. Appen kan også bruges på Android-telefoner.
 
 ## Hent APK til Android TV
 
-Åbn [downloadsiden](https://skttl.github.io/DirekteSport-android-tv/) i browseren, og tryk **Download nyeste APK**. Åbn den hentede fil, og tillad installation fra browseren eller filhåndteringen. Appen vises som **DirekteSport TV** i telefonens appskuffe og på Android TV-startskærmen.
+Åbn [downloadsiden](https://skttl.github.io/DirekteSport-android-tv/) i browseren, og tryk **Download nyeste APK**. Åbn den hentede fil, og tillad installation fra browseren eller filhåndteringen. Appen vises som **DS Play** i telefonens appskuffe og på Android TV-startskærmen.
 
-Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** for at kontrollere manuelt. Når en opdatering findes, viser appen versionsnoterne og kan selv hente APK-filen. Android åbner derefter installationsskærmen. Første gang skal du give DirekteSport TV tilladelse til at installere apps fra denne kilde. De publicerede APK'er signeres med samme nøgle, så en ny APK kan opdatere en tidligere installation. Den lokale debug-APK i `app/build/outputs/apk/debug/` har en anden signatur og kan ikke installeres som opdatering til den publicerede APK.
+Appen tjekker ved start, om der findes en nyere APK. Brug **Tjek opdatering** for at kontrollere manuelt. Når en opdatering findes, viser appen versionsnoterne og kan selv hente APK-filen. Android åbner derefter installationsskærmen. Første gang skal du give DS Play tilladelse til at installere apps fra denne kilde. De publicerede APK'er signeres med samme nøgle, så en ny APK kan opdatere en tidligere installation. Den lokale debug-APK i `app/build/outputs/apk/debug/` har en anden signatur og kan ikke installeres som opdatering til den publicerede APK.
 
 ## Prøv første milepæl
 

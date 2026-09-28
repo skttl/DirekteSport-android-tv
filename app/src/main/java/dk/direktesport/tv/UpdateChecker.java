@@ -47,7 +47,7 @@ final class UpdateChecker {
                 String name = entry.optString("name");
                 String url = entry.optString("url");
                 if (!build.matches("build-[1-9][0-9]*")
-                        || !name.matches("DirekteSport-TV-[0-9a-f]{12}\\.apk")
+                        || !name.matches("(?:DS-Play|DirekteSport-TV)-[0-9a-f]{12}\\.apk")
                         || !url.equals(RELEASE_PREFIX + build + "/" + name)) continue;
                 int code;
                 try {

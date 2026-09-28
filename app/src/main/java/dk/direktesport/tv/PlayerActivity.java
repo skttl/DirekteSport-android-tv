@@ -357,7 +357,9 @@ public final class PlayerActivity extends Activity {
         button.setAllCaps(false);
         button.setText(label);
         button.setTextSize(17);
-        button.setTextColor(Color.WHITE);
+        button.setTextColor(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
+                new int[]{Color.rgb(10, 26, 26), Color.WHITE}));
         button.setBackgroundTintList(new android.content.res.ColorStateList(
                 new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
                 new int[]{Color.rgb(92, 255, 154), Color.rgb(23, 63, 63)}));
@@ -451,7 +453,7 @@ public final class PlayerActivity extends Activity {
         chooser.setBackgroundColor(Color.argb(250, 10, 26, 26));
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(32), dp(20), dp(32), dp(20));
+        list.setPadding(dp(isTv ? 48 : 24), dp(isTv ? 28 : 20), dp(24), dp(28));
         chooser.addView(list);
         TextView title = new TextView(this);
         title.setText("Andre videoer · Tilbage lukker listen");
@@ -471,7 +473,10 @@ public final class PlayerActivity extends Activity {
             item.setAllCaps(false);
             item.setText((i == selected ? "▶  " : "") + video.title
                     + (video.paid ? "  · Abonnement" : "  · Gratis"));
-            item.setTextColor(Color.WHITE);
+            item.setTextSize(18);
+            item.setTextColor(new android.content.res.ColorStateList(
+                    new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
+                    new int[]{Color.rgb(10, 26, 26), Color.WHITE}));
             item.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
             item.setBackgroundTintList(new android.content.res.ColorStateList(
                     new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
@@ -481,11 +486,11 @@ public final class PlayerActivity extends Activity {
                 hideChooser();
                 play(video.id);
             });
-            list.addView(item, new LinearLayout.LayoutParams(-1, dp(64)));
+            list.addView(item, new LinearLayout.LayoutParams(-1, dp(72)));
             if (i == selected) main.post(item::requestFocus);
         }
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                compact ? -1 : dp(620), -1, Gravity.START);
+                compact ? -1 : dp(isTv ? 480 : 620), -1, Gravity.START);
         root.addView(chooser, params);
         chooser.bringToFront();
     }

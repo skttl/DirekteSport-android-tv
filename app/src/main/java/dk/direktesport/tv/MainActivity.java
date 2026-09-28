@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Insets;
+import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.StateListDrawable;
@@ -23,6 +24,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.inputmethod.EditorInfo;
 import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
@@ -47,6 +49,7 @@ import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -67,10 +70,15 @@ public final class MainActivity extends Activity {
     private final List<CatalogClient.Category> categories = new ArrayList<>();
     private GridView grid;
     private boolean compact;
+    private boolean isTv;
     private VideoAdapter adapter;
     private TextView status;
     private Button categoryButton;
+    private Button liveButton;
+    private Button archiveButton;
+    private Button searchButton;
     private EditText searchInput;
+    private String sectionTitle = "Live og kommende udsendelser";
     private String mode = "livestream";
     private String categoryId = "";
     private String search = "";
@@ -78,6 +86,7 @@ public final class MainActivity extends Activity {
     private int generation;
     private boolean loading;
     private boolean hasMore = true;
+    private boolean focusResults;
     private boolean downloadingUpdate;
     private AlertDialog downloadDialog;
     private File pendingApk;
@@ -103,11 +112,12 @@ public final class MainActivity extends Activity {
 
     private void buildUi() {
         Configuration configuration = getResources().getConfiguration();
-        compact = (configuration.uiMode & Configuration.UI_MODE_TYPE_MASK)
-                != Configuration.UI_MODE_TYPE_TELEVISION && configuration.smallestScreenWidthDp < 600;
+        isTv = (configuration.uiMode & Configuration.UI_MODE_TYPE_MASK)
+                == Configuration.UI_MODE_TYPE_TELEVISION;
+        compact = !isTv && configuration.smallestScreenWidthDp < 600;
         int sidePadding = dp(compact ? 12 : 48);
         int topPadding = dp(compact ? 8 : 28);
-        int bottomPadding = dp(compact ? 8 : 18);
+        int bottomPadding = dp(compact ? 8 : 28);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACKGROUND);
@@ -124,12 +134,11 @@ public final class MainActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(header, new LinearLayout.LayoutParams(-1, dp(compact ? 45 : 72)));
-        TextView title = label("DIREKTE SPORT", compact ? 24 : 34, ACCENT);
-        title.setTypeface(null, 1);
+        root.addView(header, new LinearLayout.LayoutParams(-1, dp(compact ? 45 : 60)));
+        TextView title = label("DIREKTE SPORT", compact ? 24 : 32, ACCENT);
+        title.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        if ((getResources().getConfiguration().uiMode & Configuration.UI_MODE_TYPE_MASK)
-                != Configuration.UI_MODE_TYPE_TELEVISION) {
+        if (!isTv) {
             MediaRouteButton castButton = new MediaRouteButton(this);
             castButton.setContentDescription("Cast til Chromecast");
             CastButtonFactory.setUpMediaRouteButton(this, castButton);
@@ -139,6 +148,10 @@ public final class MainActivity extends Activity {
         updates.setOnClickListener(v -> checkForUpdates(true));
         Button login = button("Log ind / konto");
         login.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
+        if (isTv) {
+            styleHeaderAction(updates);
+            styleHeaderAction(login);
+        }
         if (compact) {
             LinearLayout actions = new LinearLayout(this);
             root.addView(actions, new LinearLayout.LayoutParams(-1, dp(50)));
@@ -151,17 +164,17 @@ public final class MainActivity extends Activity {
 
         LinearLayout navigation = new LinearLayout(this);
         navigation.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(navigation, new LinearLayout.LayoutParams(-1, dp(compact ? 50 : 64)));
-        Button live = button("Live");
-        live.setOnClickListener(v -> { mode = "livestream"; search = ""; reload("Live og kommende udsendelser"); });
-        Button archive = button("Arkiv");
-        archive.setOnClickListener(v -> { mode = "video-on-demand"; search = ""; reload("Arkivvideoer"); });
+        root.addView(navigation, new LinearLayout.LayoutParams(-1, dp(compact ? 50 : 56)));
+        liveButton = button("Live");
+        liveButton.setOnClickListener(v -> { mode = "livestream"; search = ""; reload("Live og kommende udsendelser"); });
+        archiveButton = button("Arkiv");
+        archiveButton.setOnClickListener(v -> { mode = "video-on-demand"; search = ""; reload("Arkivvideoer"); });
         if (compact) {
-            navigation.addView(live, new LinearLayout.LayoutParams(0, -1, 1));
-            navigation.addView(archive, new LinearLayout.LayoutParams(0, -1, 1));
+            navigation.addView(liveButton, new LinearLayout.LayoutParams(0, -1, 1));
+            navigation.addView(archiveButton, new LinearLayout.LayoutParams(0, -1, 1));
         } else {
-            navigation.addView(live);
-            navigation.addView(archive);
+            navigation.addView(liveButton);
+            navigation.addView(archiveButton);
         }
         categoryButton = button("Alle sportsgrene ▾");
         categoryButton.setOnClickListener(v -> chooseCategory());
@@ -173,29 +186,40 @@ public final class MainActivity extends Activity {
 
         LinearLayout searchRow = compact ? new LinearLayout(this) : navigation;
         if (compact) root.addView(searchRow, new LinearLayout.LayoutParams(-1, dp(50)));
-        searchInput = new EditText(this);
-        searchInput.setSingleLine(true);
-        searchInput.setHint("Søg i videoer");
-        searchInput.setTextColor(Color.WHITE);
-        searchInput.setHintTextColor(MUTED);
-        StateListDrawable searchBackground = new StateListDrawable();
-        GradientDrawable searchFocused = new GradientDrawable();
-        searchFocused.setColor(CARD);
-        searchFocused.setStroke(dp(2), ACCENT);
-        searchBackground.addState(new int[]{android.R.attr.state_focused}, searchFocused);
-        searchBackground.addState(new int[]{}, new ColorDrawable(CARD));
-        searchInput.setBackground(searchBackground);
-        searchInput.setPadding(dp(14), 0, dp(14), 0);
-        searchInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
-        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(0, dp(46), 1);
-        if (!compact) searchParams.leftMargin = dp(12);
-        searchRow.addView(searchInput, searchParams);
-        Button searchButton = button("Søg");
-        searchButton.setOnClickListener(v -> search());
+        if (isTv) {
+            navigation.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
+        } else {
+            searchInput = new EditText(this);
+            searchInput.setSingleLine(true);
+            searchInput.setHint("Søg i videoer");
+            searchInput.setTextColor(Color.WHITE);
+            searchInput.setHintTextColor(MUTED);
+            StateListDrawable searchBackground = new StateListDrawable();
+            GradientDrawable searchFocused = new GradientDrawable();
+            searchFocused.setColor(CARD);
+            searchFocused.setStroke(dp(2), ACCENT);
+            searchBackground.addState(new int[]{android.R.attr.state_focused}, searchFocused);
+            searchBackground.addState(new int[]{}, new ColorDrawable(CARD));
+            searchInput.setBackground(searchBackground);
+            searchInput.setPadding(dp(14), 0, dp(14), 0);
+            searchInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+            LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(0, dp(46), 1);
+            if (!compact) searchParams.leftMargin = dp(12);
+            searchRow.addView(searchInput, searchParams);
+            searchInput.setOnEditorActionListener((v, action, event) -> { search(searchInput.getText().toString()); return true; });
+        }
+        searchButton = button("Søg");
+        searchButton.setOnClickListener(v -> {
+            if (isTv) showSearchDialog(); else search(searchInput.getText().toString());
+        });
         searchRow.addView(searchButton);
-        searchInput.setOnEditorActionListener((v, action, event) -> { search(); return true; });
-        status = label("Henter videoer …", compact ? 16 : 20, MUTED);
-        status.setPadding(0, dp(compact ? 8 : 20), 0, dp(12));
+        status = label("Henter videoer …", compact ? 16 : 23, Color.WHITE);
+        if (isTv) status.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD));
+        if (isTv) {
+            status.setSingleLine(true);
+            status.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        }
+        status.setPadding(0, dp(compact ? 8 : 10), 0, dp(8));
         root.addView(status);
 
         grid = new GridView(this);
@@ -207,6 +231,7 @@ public final class MainActivity extends Activity {
         grid.setSelector(android.R.color.transparent);
         grid.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         grid.setFocusable(true);
+        if (isTv) grid.setFocusableInTouchMode(true);
         adapter = new VideoAdapter();
         grid.setAdapter(adapter);
         grid.setOnItemClickListener((parent, view, position, id) -> {
@@ -223,7 +248,7 @@ public final class MainActivity extends Activity {
             }
         });
         root.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
-        live.requestFocus();
+        liveButton.requestFocus();
     }
 
     private void checkForUpdates(boolean manual) {
@@ -351,13 +376,43 @@ public final class MainActivity extends Activity {
                 .setPositiveButton("OK", null).show();
     }
 
-    private void search() {
-        search = searchInput.getText().toString().trim();
+    private void showSearchDialog() {
+        boolean[] submitted = {false};
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setText(search);
+        input.setHint("Søg i videoer");
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
+        AlertDialog searchDialog = new AlertDialog.Builder(this)
+                .setTitle("Søg i videoer")
+                .setView(input)
+                .setPositiveButton("Søg", (popup, which) -> {
+                    submitted[0] = true;
+                    search(input.getText().toString());
+                })
+                .setNegativeButton("Annuller", null)
+                .create();
+        input.setOnEditorActionListener((view, action, event) -> {
+            if (action != EditorInfo.IME_ACTION_SEARCH) return false;
+            submitted[0] = true;
+            search(input.getText().toString());
+            searchDialog.dismiss();
+            return true;
+        });
+        searchDialog.setOnDismissListener(dialog -> {
+            if (submitted[0] && !videos.isEmpty()) focusFirstResult();
+        });
+        searchDialog.show();
+    }
+
+    private void search(String query) {
+        search = query.trim();
         if (search.isEmpty()) return;
         mode = "search";
-        reload("Søger efter “" + search + "”");
-        searchInput.clearFocus();
-        grid.requestFocus();
+        focusResults = true;
+        reload("Søgning: “" + search + "”");
+        if (searchInput != null) searchInput.clearFocus();
     }
 
     private void chooseCategory() {
@@ -384,13 +439,18 @@ public final class MainActivity extends Activity {
     }
 
     private void reload(String message) {
+        if (!"search".equals(mode)) focusResults = false;
+        sectionTitle = message;
+        liveButton.setActivated("livestream".equals(mode));
+        archiveButton.setActivated("video-on-demand".equals(mode));
+        searchButton.setActivated("search".equals(mode));
         generation++;
         page = 0;
         hasMore = true;
         loading = false;
         videos.clear();
         adapter.notifyDataSetChanged();
-        status.setText(message + " · henter …");
+        status.setText(sectionTitle + " · henter …");
         loadMore();
     }
 
@@ -418,11 +478,15 @@ public final class MainActivity extends Activity {
                     if (generation != expectedGeneration) return;
                     videos.addAll(result.videos);
                     adapter.notifyDataSetChanged();
+                    if (focusResults && !videos.isEmpty()) {
+                        focusResults = false;
+                        focusFirstResult();
+                    }
                     page++;
                     hasMore = result.hasMore;
                     loading = false;
-                    status.setText(videos.isEmpty() ? "Ingen videoer fundet" :
-                            videos.size() + " videoer vist" + (hasMore ? " · rul ned for flere" : ""));
+                    status.setText(videos.isEmpty() ? sectionTitle + " · ingen videoer fundet" :
+                            sectionTitle + " · " + videos.size() + " videoer");
                 });
             } catch (Exception error) {
                 main.post(() -> {
@@ -432,6 +496,11 @@ public final class MainActivity extends Activity {
                 });
             }
         });
+    }
+
+    private void focusFirstResult() {
+        grid.requestFocusFromTouch();
+        grid.setSelection(0);
     }
 
     private final class VideoAdapter extends BaseAdapter {
@@ -473,7 +542,8 @@ public final class MainActivity extends Activity {
             if (video.isLive()) {
                 long now = System.currentTimeMillis() / 1000;
                 detail = (video.startsAt <= now && "live".equals(video.state) ? "LIVE" :
-                        video.startsAt > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date(video.startsAt * 1000)) : "Live")
+                        video.startsAt > 0 ? DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT,
+                                Locale.forLanguageTag("da-DK")).format(new Date(video.startsAt * 1000)) : "Live")
                         + (detail.isEmpty() ? "" : " · " + detail);
             }
             TextView metadata = label(detail, 14, MUTED);
@@ -509,15 +579,39 @@ public final class MainActivity extends Activity {
         Button button = new Button(this);
         button.setText(text);
         button.setAllCaps(false);
+        if (isTv) button.setTextSize(17);
         button.setTextColor(new android.content.res.ColorStateList(
-                new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
-                new int[]{BACKGROUND, Color.WHITE}));
+                new int[][]{new int[]{android.R.attr.state_focused},
+                        new int[]{android.R.attr.state_activated}, new int[]{}},
+                new int[]{BACKGROUND, ACCENT, Color.WHITE}));
         StateListDrawable background = new StateListDrawable();
         background.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(ACCENT));
+        background.addState(new int[]{android.R.attr.state_activated}, new ColorDrawable(Color.rgb(46, 82, 82)));
         background.addState(new int[]{}, new ColorDrawable(CARD));
         button.setBackground(background);
         button.setPadding(dp(18), 0, dp(18), 0);
         return button;
+    }
+
+    private void styleHeaderAction(Button button) {
+        button.setTextSize(15);
+        button.setTextColor(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_focused}, new int[]{}},
+                new int[]{BACKGROUND, MUTED}));
+        StateListDrawable background = new StateListDrawable();
+        background.addState(new int[]{android.R.attr.state_focused}, new ColorDrawable(ACCENT));
+        background.addState(new int[]{}, new ColorDrawable(Color.TRANSPARENT));
+        button.setBackground(background);
+    }
+
+    @Override public void onBackPressed() {
+        if (isTv && grid.hasFocus()) {
+            grid.smoothScrollToPosition(0);
+            ("search".equals(mode) ? searchButton :
+                    "video-on-demand".equals(mode) ? archiveButton : liveButton).requestFocus();
+            return;
+        }
+        super.onBackPressed();
     }
 
     private TextView label(String value, int size, int color) {

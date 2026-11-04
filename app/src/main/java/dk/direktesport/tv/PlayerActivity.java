@@ -14,6 +14,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -77,6 +78,7 @@ public final class PlayerActivity extends Activity {
     private long resumePosition;
     private boolean castFailed;
     private boolean checkingVideoAccess;
+    private AlertDialog videoLoadingDialog;
     private int pendingSelection = -1;
     private final SessionManagerListener<CastSession> castListener = new SessionManagerListener<CastSession>() {
         @Override public void onSessionStarting(CastSession session) {}
@@ -135,7 +137,10 @@ public final class PlayerActivity extends Activity {
                 refreshControls();
             }
 
-            @Override public void onIsPlayingChanged(boolean playing) { refreshControls(); }
+            @Override public void onIsPlayingChanged(boolean playing) {
+                root.setKeepScreenOn(playing);
+                refreshControls();
+            }
 
             @Override public void onPlayerError(PlaybackException error) {
                 message.setText("Kunne ikke afspille videoen: " + error.getMessage());
@@ -504,11 +509,17 @@ public final class PlayerActivity extends Activity {
             return;
         }
         checkingVideoAccess = true;
+        videoLoadingDialog = new AlertDialog.Builder(this)
+                .setTitle("Åbner video …")
+                .setMessage("Vent et øjeblik.")
+                .setView(new ProgressBar(this))
+                .setCancelable(false).show();
         executor.execute(() -> {
             try {
                 boolean loggedIn = AuthClient.isLoggedIn();
                 main.post(() -> {
                     checkingVideoAccess = false;
+                    videoLoadingDialog.dismiss();
                     if (isFinishing() || isDestroyed()) return;
                     if (loggedIn) playSelected(index);
                     else if (afterLogin) showAccessError("Login kunne ikke bekræftes. Prøv igen.");
@@ -520,6 +531,7 @@ public final class PlayerActivity extends Activity {
             } catch (Exception error) {
                 main.post(() -> {
                     checkingVideoAccess = false;
+                    videoLoadingDialog.dismiss();
                     if (!isFinishing() && !isDestroyed())
                         showAccessError("Kunne ikke kontrollere login. Kontrollér forbindelsen og prøv igen.");
                 });
@@ -572,6 +584,7 @@ public final class PlayerActivity extends Activity {
     }
 
     @Override protected void onDestroy() {
+        if (videoLoadingDialog != null) videoLoadingDialog.dismiss();
         requestGeneration++;
         main.removeCallbacks(updateProgress);
         main.removeCallbacks(hideControls);

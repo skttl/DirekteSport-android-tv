@@ -112,6 +112,7 @@ public final class MainActivity extends Activity {
     private String pendingVideoId;
     private boolean pendingVideoPaid;
     private boolean checkingVideoAccess;
+    private AlertDialog videoLoadingDialog;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -132,6 +133,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onDestroy() {
         if (downloadDialog != null) downloadDialog.dismiss();
+        if (videoLoadingDialog != null) videoLoadingDialog.dismiss();
         executor.shutdownNow();
         updateExecutor.shutdownNow();
         images.shutdownNow();
@@ -805,11 +807,17 @@ public final class MainActivity extends Activity {
             return;
         }
         checkingVideoAccess = true;
+        videoLoadingDialog = new AlertDialog.Builder(this)
+                .setTitle("Åbner video …")
+                .setMessage("Vent et øjeblik.")
+                .setView(new ProgressBar(this))
+                .setCancelable(false).show();
         executor.execute(() -> {
             try {
                 boolean loggedIn = AuthClient.isLoggedIn();
                 main.post(() -> {
                     checkingVideoAccess = false;
+                    videoLoadingDialog.dismiss();
                     if (isFinishing() || isDestroyed() || (index >= 0 &&
                             (index >= videos.size() || !id.equals(videos.get(index).id)))) return;
                     if (loggedIn) startPlayer(index, id);
@@ -824,6 +832,7 @@ public final class MainActivity extends Activity {
             } catch (Exception error) {
                 main.post(() -> {
                     checkingVideoAccess = false;
+                    videoLoadingDialog.dismiss();
                     if (!isFinishing() && !isDestroyed())
                         showUpdateError("Kunne ikke kontrollere login", "Kontrollér forbindelsen og prøv igen.");
                 });

@@ -44,6 +44,7 @@ android {
 }
 
 dependencies {
+    androidTestImplementation files("${android.sdkDirectory}/platforms/android-35/optional/android.test.base.jar")
     implementation 'androidx.core:core:1.15.0'
     def media3Version = '1.5.1'
     implementation "androidx.media3:media3-exoplayer:$media3Version"

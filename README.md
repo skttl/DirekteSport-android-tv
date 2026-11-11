@@ -20,9 +20,13 @@ Appen henter videoens HLS-adresse fra Flowplayers konfiguration ved hjælp af vi
 
 Brug JDK 17, Android SDK Platform 35 og Build Tools 35.0.0. Sæt `ANDROID_HOME` til SDK-mappen, og kør `gradlew.bat assembleDebug` i projektmappen. Den resulterende APK ligger i `app/build/outputs/apk/debug/`.
 
+Med en tilsluttet Android-enhed eller emulator kan katalogets integrationstests køres med `gradlew.bat connectedDebugAndroidTest`. De kræver internet og kontrollerer live, arkiv, sideskift, søgning og kategorier til favoritanbefalinger mod DirekteSports aktuelle feeds. Hvis enheden allerede har en nyere debugversion, angiv mindst samme versionskode med `-PbuildVersionCode=<versionskode>`.
+
 Hvert push til `main` starter `.github/workflows/publish-apk.yml`. Workflowet bygger en signeret APK med stigende Android-versionskode og et nyt filnavn med commit-id. Hver APK arkiveres som et GitHub-download, og GitHub Pages viser de seneste 10 versioner med direkte APK-links og versionsnoter. Nye versionsnoter hentes fra commit-beskeden; ældre releases beholder deres eksisterende beskrivelse. Alle tidligere APK'er ligger fortsat under GitHub Releases. Siden opdaterer listen via en cache-fri forespørgsel. Repository secrets `ANDROID_KEYSTORE_BASE64` og `ANDROID_KEYSTORE_PASSWORD` er nødvendige for signering; nøglen ligger ikke i Git.
 
 Kataloget hentes fra de JSON-endepunkter, som [DirekteSports hjemmeside](https://direktesport.dk/) selv bruger. De er ikke dokumenteret som et offentligt tredjeparts-API og kan ændre sig. Login og betaling styres af DirekteSport/JFM; appen gemmer ikke adgangskoden selv og forsøger ikke at omgå abonnementsadgang.
+
+De faste live-, arkiv- og søgekald bruger hjemmesidens `folderId`. Kategori-id'er hentes fra feed-URL'erne på de ni sportssider, da det tidligere kategori-endpoint er fjernet. TV-forsiden og sportssiderne bruger fortsat feed-URL'erne direkte fra hjemmesiden.
 
 ## Status
 

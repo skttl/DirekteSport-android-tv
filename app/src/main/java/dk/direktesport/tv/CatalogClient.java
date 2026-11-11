@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
 
 final class CatalogClient {
     static final String BASE = "https://direktesport.dk";
-    static final String WORKSPACE = "8de32d80-db7d-47d2-867d-cd1e640f2745";
+    static final String FOLDER = "4bf2555a-ac21-49e7-90c4-b277f9a0271b";
     static final int PAGE_SIZE = 20;
     private static final Pattern BLOCK = Pattern.compile(
             "<div\\b[^>]*class=\"[^\"]*(?:jfm-video-list-block|flowplayer-teaser-block)[^\"]*\"[^>]*>",
@@ -37,15 +37,18 @@ final class CatalogClient {
     private CatalogClient() {}
 
     static List<Category> categories() throws IOException, JSONException {
-        JSONArray json = new JSONArray(get(BASE + "/flowplayer/api/categories?workspaceId=" + WORKSPACE));
         List<Category> result = new ArrayList<>();
         result.add(new Category("", "Alle sportsgrene"));
-        for (int i = 0; i < json.length(); i++) {
-            JSONObject item = json.getJSONObject(i);
-            String name = item.optString("name");
-            if (!name.isEmpty() && !"target-import".equals(name)) {
-                result.add(new Category(item.optString("id"), name));
+        for (String[] sport : SITE_SPORTS) {
+            String categoryId = null;
+            for (Block block : pageBlocks(sport[1])) {
+                categoryId = Uri.parse(block.api).getQueryParameter("categoryId");
+                if (categoryId != null && !categoryId.isEmpty()) break;
             }
+            if (categoryId == null || categoryId.isEmpty()) {
+                throw new IOException("Kunne ikke finde kategori for " + sport[0]);
+            }
+            result.add(new Category(categoryId, sport[0]));
         }
         return result;
     }
@@ -61,7 +64,7 @@ final class CatalogClient {
     private static Page videos(String type, String categoryId, String search, int page, int daysForward) throws IOException, JSONException {
         String path = "livestream".equals(type) ? "livestreams" : "videos-on-demand";
         StringBuilder url = new StringBuilder(BASE).append("/flowplayer/api/").append(path)
-                .append("?workspaceId=").append(WORKSPACE)
+                .append("?folderId=").append(FOLDER)
                 .append("&page=").append(page)
                 .append("&pageSize=").append(PAGE_SIZE);
         if ("livestream".equals(type) && search.isEmpty()) {

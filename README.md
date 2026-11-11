@@ -28,6 +28,14 @@ Kataloget hentes fra de JSON-endepunkter, som [DirekteSports hjemmeside](https:/
 
 De faste live-, arkiv- og søgekald bruger hjemmesidens `folderId`. Kategori-id'er hentes fra feed-URL'erne på de ni sportssider, da det tidligere kategori-endpoint er fjernet. TV-forsiden og sportssiderne bruger fortsat feed-URL'erne direkte fra hjemmesiden.
 
+## Automatisk HTTP-integrationstest
+
+`.github/workflows/direktesport-http.yml` kører hver 4. time, kl. 00:17, 04:17, 08:17, 12:17, 16:17 og 20:17 UTC. Den kan også startes manuelt i GitHub Actions. Den planlagte kørsel starter, når workflowet findes på repositoryets standardbranch. GitHub kan forsinke kørsler.
+
+Testen bruger Python uden ekstra pakker, Android eller login. Den kontrollerer live- og VOD-feedets HTTP-svar og JSON-format. For den nyeste VOD og én aktuel livestream henter den videokonfigurationen, følger HLS-playlisterne og henter op til 1 KB fra det første videosegment. Abonnementsvideoer indgår på samme måde som andre videoer. Manglende aktuelle livestreams giver en eksplicit sprunget live-test; fejl i livefeedet giver stadig en fejlet kørsel. Fejl på den valgte video skjules ikke ved at prøve andre videoer. Resultaterne vises i kørselsoversigten i Actions.
+
+Kør HTTP-testen lokalt med `python tests/direktesport_http.py`. Kontrollér selve testlogikken uden netværk med `python -m unittest discover -s tests -p 'test_direktesport_http.py' -v`. Testen kontrollerer HTTP-adgang til videodata, ikke dekodning, billed- eller lydkvalitet, login eller Chromecast. Endpoint-konstanterne svarer til appens `CatalogClient` og `VideoSourceClient` og skal opdateres sammen med dem.
+
 ## Status
 
 Katalog-endepunkterne og HLS-konfigurationen er kontrolleret uden login. Den direkte afspilning og betalt adgang skal afprøves på en Android TV-enhed med en JFM-konto.

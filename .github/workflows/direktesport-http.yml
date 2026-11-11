@@ -1,0 +1,43 @@
+name: DirekteSport HTTP integration
+
+on:
+  schedule:
+    - cron: '17 */4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: direktesport-http
+  cancel-in-progress: false
+
+jobs:
+  http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Check smoke test logic
+        run: python -m unittest discover -s tests -p 'test_direktesport_http.py' -v
+
+      - name: Check DirekteSport HTTP integration
+        shell: bash
+        run: python tests/direktesport_http.py 2>&1 | tee "$RUNNER_TEMP/direktesport-http.txt"
+
+      - name: Write HTTP results to job summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/direktesport-http.txt" ]; then
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/direktesport-http.txt" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi

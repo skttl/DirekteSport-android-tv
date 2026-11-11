@@ -12,6 +12,7 @@ class SmokeTestLogicTest(unittest.TestCase):
     @patch.object(smoke, "get")
     def test_master_playlist_resolves_redirect_and_relative_segment(self, get):
         get.side_effect = [
+            (b'{"id":"player-id"}', "unused"),
             (json.dumps({"src": ["//cdn.example/master.m3u8"]}).encode(), "unused"),
             (b"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100\nlow/index.m3u8\n",
              "https://cdn.example/redirect/master.m3u8"),
@@ -20,15 +21,19 @@ class SmokeTestLogicTest(unittest.TestCase):
             (b"video bytes", "unused"),
         ]
         smoke.check_stream("example-id")
-        self.assertEqual("https://cdn.example/master.m3u8", get.call_args_list[1].args[0])
+        self.assertEqual(smoke.BASE + "/flowplayer/api/videos-on-demand/example-id",
+                         get.call_args_list[0].args[0])
+        self.assertEqual(smoke.CONFIG + "player-id", get.call_args_list[1].args[0])
+        self.assertEqual("https://cdn.example/master.m3u8", get.call_args_list[2].args[0])
         self.assertEqual("https://cdn.example/redirect/low/index.m3u8",
-                         get.call_args_list[2].args[0])
+                         get.call_args_list[3].args[0])
         get.assert_called_with("https://cdn.example/redirect/low/segment.ts",
                                "HLS media segment", sample=True)
 
     @patch.object(smoke, "get")
     def test_html_response_is_not_accepted_as_playlist(self, get):
         get.side_effect = [
+            (b'{"id":"player-id"}', "unused"),
             (b'{"src":["https://cdn.example/video.m3u8"]}', "unused"),
             (b"<html>Service unavailable</html>", "unused"),
         ]
@@ -66,7 +71,7 @@ class SmokeTestLogicTest(unittest.TestCase):
             {"totalPages": 2, "videos": [{"id": "active", "state": "live", "paid": True}]},
         ]
         smoke.DirekteSportHttpTest("test_live_stream").test_live_stream()
-        check_stream.assert_called_once_with("active")
+        check_stream.assert_called_once_with("active", live=True)
         self.assertEqual([call("livestreams", 0), call("livestreams", 1)], feed.call_args_list)
 
     @patch.object(smoke, "feed")
@@ -75,6 +80,29 @@ class SmokeTestLogicTest(unittest.TestCase):
         feed.return_value = {"videos": [{"id": "latest", "paid": True}]}
         smoke.DirekteSportHttpTest("test_video_on_demand").test_video_on_demand()
         check_stream.assert_called_once_with("latest")
+
+    @patch.object(smoke, "get")
+    def test_live_details_resolve_player_id_before_configuration(self, get):
+        get.side_effect = [
+            (b'{"id":"live-player-id"}', "unused"),
+            (b'{"src":["https://cdn.example/live.m3u8"]}', "unused"),
+            (b"#EXTM3U\n#EXTINF:6,\nsegment.ts\n", "https://cdn.example/live.m3u8"),
+            (b"video bytes", "unused"),
+        ]
+        smoke.check_stream("live-list-id", live=True)
+        self.assertEqual(smoke.BASE + "/flowplayer/api/livestreams/live-list-id",
+                         get.call_args_list[0].args[0])
+        self.assertEqual(smoke.CONFIG + "live-player-id", get.call_args_list[1].args[0])
+
+    @patch.object(smoke, "get_json")
+    def test_invalid_details_fail_before_configuration_request(self, get_json):
+        for detail in (None, {}, {"id": ""}, {"id": 123}):
+            with self.subTest(detail=detail):
+                get_json.reset_mock()
+                get_json.return_value = detail
+                with self.assertRaisesRegex(AssertionError, "missing player id"):
+                    smoke.check_stream("list-id")
+                get_json.assert_called_once()
 
 
 if __name__ == "__main__":

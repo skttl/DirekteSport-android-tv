@@ -21,9 +21,28 @@ final class VideoSourceClient {
 
     private VideoSourceClient() {}
 
-    static String hlsUrl(String videoId) throws IOException, JSONException {
+    static String hlsUrl(String videoId, boolean live) throws IOException, JSONException {
         if (videoId == null || videoId.isEmpty()) throw new IOException("Video-id mangler");
-        String url = CONFIG_BASE + Uri.encode(videoId);
+        String kind = live ? "livestreams" : "videos-on-demand";
+        JSONObject detail = getJson(CatalogClient.BASE + "/flowplayer/api/" + kind + "/" + Uri.encode(videoId));
+        Object playerId = detail.opt("id");
+        if (!(playerId instanceof String) || ((String) playerId).isEmpty()) {
+            throw new IOException("Afspiller-id mangler i videodetaljer");
+        }
+        JSONArray sources = getJson(CONFIG_BASE + Uri.encode((String) playerId)).optJSONArray("src");
+        if (sources != null) {
+            for (int i = 0; i < sources.length(); i++) {
+                String source = sources.optString(i, "");
+                if (source.startsWith("//")) source = "https:" + source;
+                Uri uri = Uri.parse(source);
+                if ("https".equals(uri.getScheme()) && uri.getPath() != null
+                        && uri.getPath().endsWith(".m3u8")) return source;
+            }
+        }
+        throw new IOException("Ingen HLS-stream fundet for videoen");
+    }
+
+    private static JSONObject getJson(String url) throws IOException, JSONException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setConnectTimeout(10000);
         connection.setReadTimeout(15000);
@@ -33,24 +52,14 @@ final class VideoSourceClient {
         if (cookie != null && !cookie.isEmpty()) connection.setRequestProperty("Cookie", cookie);
         try {
             int code = connection.getResponseCode();
-            if (code < 200 || code >= 300) throw new IOException("Videokonfiguration svarede med HTTP " + code);
+            if (code < 200 || code >= 300) throw new IOException("Videotjenesten svarede med HTTP " + code);
             StringBuilder body = new StringBuilder();
             try (InputStream input = connection.getInputStream();
                  BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) body.append(line);
             }
-            JSONArray sources = new JSONObject(body.toString()).optJSONArray("src");
-            if (sources != null) {
-                for (int i = 0; i < sources.length(); i++) {
-                    String source = sources.optString(i, "");
-                    if (source.startsWith("//")) source = "https:" + source;
-                    Uri uri = Uri.parse(source);
-                    if ("https".equals(uri.getScheme()) && uri.getPath() != null
-                            && uri.getPath().endsWith(".m3u8")) return source;
-                }
-            }
-            throw new IOException("Ingen HLS-stream fundet for videoen");
+            return new JSONObject(body.toString());
         } finally {
             connection.disconnect();
         }

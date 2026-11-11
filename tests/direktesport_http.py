@@ -3,7 +3,7 @@
 import json
 import unittest
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin, urlsplit
+from urllib.parse import quote, urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -52,8 +52,13 @@ def feed(kind, page=0):
     return data
 
 
-def check_stream(video_id):
-    config = get_json(CONFIG + video_id, "video configuration")
+def check_stream(video_id, *, live=False):
+    kind = "livestreams" if live else "videos-on-demand"
+    detail = get_json(f"{BASE}/flowplayer/api/{kind}/{quote(video_id, safe='')}", "video details")
+    player_id = detail.get("id") if isinstance(detail, dict) else None
+    if not isinstance(player_id, str) or not player_id:
+        raise AssertionError("video details: missing player id")
+    config = get_json(CONFIG + quote(player_id, safe=""), "video configuration")
     sources = config.get("src", [])
     source = next((urljoin("https:", value) for value in sources
                    if isinstance(value, str)
@@ -108,7 +113,7 @@ class DirekteSportHttpTest(unittest.TestCase):
             live = next((video for video in data["videos"]
                          if video.get("state") == "live"), None)
             if live is not None:
-                check_stream(live["id"])
+                check_stream(live["id"], live=True)
                 return
             page += 1
             if page >= data.get("totalPages", 0):

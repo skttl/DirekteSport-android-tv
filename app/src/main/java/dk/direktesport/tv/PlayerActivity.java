@@ -189,14 +189,14 @@ public final class PlayerActivity extends Activity {
 
         selected = getIntent().getIntExtra("index", 0);
         if (!queue.isEmpty() && selected >= 0 && selected < queue.size()) {
-            play(queue.get(selected).id);
+            play(queue.get(selected).id, queue.get(selected).isLive());
         } else {
             String id = getIntent().getStringExtra("id");
-            if (id == null) finish(); else play(id);
+            if (id == null) finish(); else play(id, getIntent().getBooleanExtra("live", false));
         }
     }
 
-    private void play(String videoId) {
+    private void play(String videoId, boolean live) {
         int request = ++requestGeneration;
         castFailed = false;
         currentSource = null;
@@ -207,7 +207,7 @@ public final class PlayerActivity extends Activity {
         message.setVisibility(View.VISIBLE);
         executor.execute(() -> {
             try {
-                String source = VideoSourceClient.hlsUrl(videoId);
+                String source = VideoSourceClient.hlsUrl(videoId, live);
                 main.post(() -> {
                     if (request != requestGeneration || isFinishing() || isDestroyed()) return;
                     currentSource = source;
@@ -542,7 +542,7 @@ public final class PlayerActivity extends Activity {
     private void playSelected(int index) {
         selected = index;
         hideChooser();
-        play(queue.get(index).id);
+        play(queue.get(index).id, queue.get(index).isLive());
     }
 
     private void showAccessError(String message) {

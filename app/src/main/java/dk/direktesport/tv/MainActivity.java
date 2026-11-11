@@ -845,6 +845,7 @@ public final class MainActivity extends Activity {
         Intent intent = new Intent(this, PlayerActivity.class);
         intent.putExtra("index", index);
         intent.putExtra("id", id);
+        intent.putExtra("live", index < 0 || videos.get(index).isLive());
         startActivity(intent);
     }
 
